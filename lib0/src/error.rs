@@ -6,7 +6,7 @@ pub enum Error {
     IO(#[from] std::io::Error),
 
     #[error("decoded variable integer size was outside of expected bounds of {0} bits")]
-    VarIntSizeExceeded(u8),
+    VarIntSizeExceeded(u16),
 
     #[error("while trying to read more data (expected: {0} bytes), an unexpected end of buffer was reached")]
     EndOfBuffer(usize),

@@ -17,6 +17,7 @@ lib0 = { path = "../lib0", version = "0.16.5" }
 smallstr = { version = "0.2", features = ["union"]}
 smallvec = { version = "1.10", features = ["union", "const_generics", "const_new"]}
 atomic_refcell = "0.1"
+primitive-types = "0.12.1"
 
 [dev-dependencies]
 criterion = "0.3"

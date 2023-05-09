@@ -1,6 +1,7 @@
 use lib0::any::Any;
 use lib0::decoding::{Cursor, Read};
 use lib0::encoding::Write;
+use primitive_types::U256;
 use proptest::prelude::*;
 
 pub fn arb_any() -> impl Strategy<Value = Any> {
@@ -35,6 +36,20 @@ proptest! {
     }
 }
 
+#[derive(Debug)]
+struct ArbU256(U256);
+
+impl Arbitrary for ArbU256 {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        (any::<[u8; 32]>())
+            .prop_map(|bytes| ArbU256(U256::from_big_endian(&bytes)))
+            .boxed()
+    }
+}
+
 #[derive(Debug, proptest_derive::Arbitrary)]
 enum EncodingTypes {
     Byte(u8),
@@ -45,6 +60,7 @@ enum EncodingTypes {
     VarUint32(u32),
     VarUint64(u64),
     VarUint128(u128),
+    VarUint256(ArbU256),
     VarUintUsize(usize),
     VarInt(i64),
     Buffer(Vec<u8>),
@@ -82,6 +98,9 @@ impl EncodingTypes {
             }
             EncodingTypes::VarUint128(input) => {
                 encoder.write_var(*input);
+            }
+            EncodingTypes::VarUint256(input) => {
+                encoder.write_var((*input).0);
             }
             EncodingTypes::VarUintUsize(input) => {
                 encoder.write_var(*input);
@@ -148,6 +167,10 @@ impl EncodingTypes {
             EncodingTypes::VarUint128(input) => {
                 let read: u128 = decoder.read_var().unwrap();
                 assert_eq!(read, *input);
+            }
+            EncodingTypes::VarUint256(input) => {
+                let read: U256 = decoder.read_var().unwrap();
+                assert_eq!(read, (*input).0);
             }
             EncodingTypes::VarUintUsize(input) => {
                 let read: usize = decoder.read_var().unwrap();

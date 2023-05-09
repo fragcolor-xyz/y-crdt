@@ -14,6 +14,7 @@ use crate::utils::OptionExt;
 use crate::*;
 use lib0::any::Any;
 use lib0::error::Error;
+use primitive_types::U256;
 use smallstr::SmallString;
 use std::collections::HashSet;
 use std::convert::TryFrom;
@@ -71,7 +72,7 @@ pub const HAS_PARENT_SUB: u8 = 0b00100000;
 
 /// Globally unique client identifier. No two active peers are allowed to share the same [ClientID].
 /// If that happens, following updates may cause document store to be corrupted and desync in a result.
-pub type ClientID = u64;
+pub type ClientID = U256;
 
 /// Block identifier, which allows to uniquely identify any element insertion in a global scope
 /// (across different replicas of the same document). It consists of client ID (which is a unique

@@ -1,3 +1,5 @@
+use primitive_types::U256;
+
 use crate::decoding::Read;
 use crate::encoding::Write;
 use crate::error::Error;
@@ -54,6 +56,36 @@ impl VarInt for u128 {
     }
 }
 
+impl VarInt for U256 {
+    fn write<W: Write>(&self, w: &mut W) {
+        let mut value = *self;
+        let high = 0b10000000;
+        while value >= U256::from(high) {
+            let b = ((value & 0b01111111.into()) | high.into()).low_u64() as u8;
+            w.write_u8(b);
+            value = value >> 7;
+        }
+
+        w.write_u8((value & 0b01111111.into()).low_u64() as u8);
+    }
+
+    fn read<R: Read>(r: &mut R) -> Result<Self, Error> {
+        let mut num = U256::zero();
+        let mut len: usize = 0;
+        loop {
+            let b = r.read_u8()?;
+            num |= U256::from(b & 0b01111111) << len;
+            len += 7;
+            if b < 0b10000000 {
+                return Ok(num);
+            }
+            if len > 280 {
+                return Err(Error::VarIntSizeExceeded(280));
+            }
+        }
+    }
+}
+
 impl VarInt for u64 {
     #[inline]
     fn write<W: Write>(&self, w: &mut W) {
@@ -89,7 +121,7 @@ impl VarInt for u16 {
         if let Ok(value) = value.try_into() {
             Ok(value)
         } else {
-            Err(Error::VarIntSizeExceeded((size_of::<Self>() * 8) as u8))
+            Err(Error::VarIntSizeExceeded((size_of::<Self>() * 8) as u16))
         }
     }
 }
@@ -105,7 +137,7 @@ impl VarInt for u8 {
         if let Ok(value) = value.try_into() {
             Ok(value)
         } else {
-            Err(Error::VarIntSizeExceeded((size_of::<Self>() * 8) as u8))
+            Err(Error::VarIntSizeExceeded((size_of::<Self>() * 8) as u16))
         }
     }
 }
@@ -121,7 +153,7 @@ impl VarInt for isize {
         if let Ok(value) = value.try_into() {
             Ok(value)
         } else {
-            Err(Error::VarIntSizeExceeded((size_of::<Self>() * 8) as u8))
+            Err(Error::VarIntSizeExceeded((size_of::<Self>() * 8) as u16))
         }
     }
 }
@@ -149,7 +181,7 @@ impl VarInt for i32 {
         if let Ok(value) = value.try_into() {
             Ok(value)
         } else {
-            Err(Error::VarIntSizeExceeded((size_of::<Self>() * 8) as u8))
+            Err(Error::VarIntSizeExceeded((size_of::<Self>() * 8) as u16))
         }
     }
 }
@@ -165,7 +197,7 @@ impl VarInt for i16 {
         if let Ok(value) = value.try_into() {
             Ok(value)
         } else {
-            Err(Error::VarIntSizeExceeded((size_of::<Self>() * 8) as u8))
+            Err(Error::VarIntSizeExceeded((size_of::<Self>() * 8) as u16))
         }
     }
 }
@@ -181,7 +213,7 @@ impl VarInt for i8 {
         if let Ok(value) = value.try_into() {
             Ok(value)
         } else {
-            Err(Error::VarIntSizeExceeded((size_of::<Self>() * 8) as u8))
+            Err(Error::VarIntSizeExceeded((size_of::<Self>() * 8) as u16))
         }
     }
 }
