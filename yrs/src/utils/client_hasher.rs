@@ -21,6 +21,6 @@ impl Hasher for ClientHasher {
         debug_assert!(bytes.len() == 16);
         // we only expect a single value to be written
         debug_assert!(self.prefix == 0);
-        self.prefix = u64::from_ne_bytes(<[u8; 8]>::try_from(bytes).unwrap());
+        self.prefix = u128::from_ne_bytes(<[u8; 16]>::try_from(bytes).unwrap()) as u64;
     }
 }
