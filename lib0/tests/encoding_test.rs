@@ -60,6 +60,7 @@ enum EncodingTypes {
     VarUint32(u32),
     VarUint64(u64),
     VarUint128(u128),
+    VarInt128(i128),
     VarUint256(ArbU256),
     VarUintUsize(usize),
     VarInt(i64),
@@ -97,6 +98,9 @@ impl EncodingTypes {
                 encoder.write_var(*input);
             }
             EncodingTypes::VarUint128(input) => {
+                encoder.write_var(*input);
+            }
+            EncodingTypes::VarInt128(input) => {
                 encoder.write_var(*input);
             }
             EncodingTypes::VarUint256(input) => {
@@ -166,6 +170,10 @@ impl EncodingTypes {
             }
             EncodingTypes::VarUint128(input) => {
                 let read: u128 = decoder.read_var().unwrap();
+                assert_eq!(read, *input);
+            }
+            EncodingTypes::VarInt128(input) => {
+                let read: i128 = decoder.read_var().unwrap();
                 assert_eq!(read, *input);
             }
             EncodingTypes::VarUint256(input) => {

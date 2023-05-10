@@ -186,7 +186,7 @@ pub struct EncoderV2 {
     ds_curr_val: u32,
     seqeuncer: u32,
     key_clock_encoder: IntDiffOptRleEncoder,
-    client_encoder: UIntOptRleEncoder,
+    client_encoder: UInt128OptRleEncoder,
     left_clock_encoder: IntDiffOptRleEncoder,
     right_clock_encoder: IntDiffOptRleEncoder,
     info_encoder: RleEncoder,
@@ -204,7 +204,7 @@ impl EncoderV2 {
             seqeuncer: 0,
             ds_curr_val: 0,
             key_clock_encoder: IntDiffOptRleEncoder::new(),
-            client_encoder: UIntOptRleEncoder::new(),
+            client_encoder: UInt128OptRleEncoder::new(),
             left_clock_encoder: IntDiffOptRleEncoder::new(),
             right_clock_encoder: IntDiffOptRleEncoder::new(),
             info_encoder: RleEncoder::new(),
@@ -278,18 +278,18 @@ impl Encoder for EncoderV2 {
     }
 
     fn write_left_id(&mut self, id: &ID) {
-        self.client_encoder.write_u64(id.client);
+        self.client_encoder.write_u128(id.client);
         self.left_clock_encoder.write_u32(id.clock)
     }
 
     fn write_right_id(&mut self, id: &ID) {
-        self.client_encoder.write_u64(id.client);
+        self.client_encoder.write_u128(id.client);
         self.right_clock_encoder.write_u32(id.clock)
     }
 
     #[inline]
     fn write_client(&mut self, client: ClientID) {
-        self.client_encoder.write_u64(client)
+        self.client_encoder.write_u128(client)
     }
 
     #[inline]
@@ -407,6 +407,53 @@ impl IntDiffOptRleEncoder {
 /// write it as a negative number. The UintOptRleDecoder then understands that it needs to read a count.
 ///
 /// Encodes [1,2,3,3,3] as [1,2,-3,3] (once 1, once 2, three times 3)
+struct UInt128OptRleEncoder {
+    buf: Vec<u8>,
+    last: u128,
+    count: u32,
+}
+
+impl UInt128OptRleEncoder {
+    fn new() -> Self {
+        UInt128OptRleEncoder {
+            buf: Vec::new(),
+            last: 0,
+            count: 0,
+        }
+    }
+
+    fn write_u128(&mut self, value: u128) {
+        if self.last == value {
+            self.count += 1;
+        } else {
+            self.flush();
+            self.count = 1;
+            self.last = value;
+        }
+    }
+
+    fn to_vec(mut self) -> Vec<u8> {
+        self.flush();
+        self.buf
+    }
+
+    fn flush(&mut self) {
+        if self.count > 0 {
+            // flush counter, unless this is the first value (count = 0)
+            // case 1: just a single value. set sign to positive
+            // case 2: write several values. set sign to negative to indicate that there is a length coming
+            if self.count == 1 {
+                self.buf.write_var(self.last as i128);
+            } else {
+                let value = Signed::new(-(self.last as i128), true);
+                self.buf.write_var_signed(&value);
+                self.buf.write_var(self.count - 2);
+            }
+        }
+    }
+}
+
+
 struct UIntOptRleEncoder {
     buf: Vec<u8>,
     last: u64,

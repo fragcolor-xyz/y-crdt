@@ -198,7 +198,7 @@ pub struct DecoderV2<'a> {
     keys: Vec<Rc<str>>,
     ds_curr_val: u32,
     key_clock_decoder: IntDiffOptRleDecoder<'a>,
-    client_decoder: UIntOptRleDecoder<'a>,
+    client_decoder: UInt128OptRleDecoder<'a>,
     left_clock_decoder: IntDiffOptRleDecoder<'a>,
     right_clock_decoder: IntDiffOptRleDecoder<'a>,
     info_decoder: RleDecoder<'a>,
@@ -235,7 +235,7 @@ impl<'a> DecoderV2<'a> {
             ds_curr_val: 0,
             keys: Vec::new(),
             key_clock_decoder: IntDiffOptRleDecoder::new(Cursor::new(key_clock_buf)),
-            client_decoder: UIntOptRleDecoder::new(Cursor::new(client_buf)),
+            client_decoder: UInt128OptRleDecoder::new(Cursor::new(client_buf)),
             left_clock_decoder: IntDiffOptRleDecoder::new(Cursor::new(left_clock_buf)),
             right_clock_decoder: IntDiffOptRleDecoder::new(Cursor::new(right_clock_buf)),
             info_decoder: RleDecoder::new(Cursor::new(info_buf)),
@@ -312,20 +312,20 @@ impl<'a> Decoder for DecoderV2<'a> {
 
     fn read_left_id(&mut self) -> Result<ID, Error> {
         Ok(ID::new(
-            self.client_decoder.read_u64()?,
+            self.client_decoder.read_u128()?,
             self.left_clock_decoder.read_u32()?,
         ))
     }
 
     fn read_right_id(&mut self) -> Result<ID, Error> {
         Ok(ID::new(
-            self.client_decoder.read_u64()?,
+            self.client_decoder.read_u128()?,
             self.right_clock_decoder.read_u32()?,
         ))
     }
 
     fn read_client(&mut self) -> Result<ClientID, Error> {
-        Ok(self.client_decoder.read_u64()?)
+        Ok(self.client_decoder.read_u128()?)
     }
 
     fn read_info(&mut self) -> Result<u8, Error> {
@@ -404,6 +404,39 @@ impl<'a> IntDiffOptRleDecoder<'a> {
     }
 }
 
+struct UInt128OptRleDecoder<'a> {
+    cursor: Cursor<'a>,
+    last: u128,
+    count: u32,
+}
+
+impl<'a> UInt128OptRleDecoder<'a> {
+    fn new(cursor: Cursor<'a>) -> Self {
+        UInt128OptRleDecoder {
+            cursor,
+            last: 0,
+            count: 0,
+        }
+    }
+
+    fn read_u128(&mut self) -> Result<u128, Error> {
+        if self.count == 0 {
+            let s = self.cursor.read_var_signed::<i128>()?;
+            // if the sign is negative, we read the count too, otherwise count is 1
+            let is_negative = s.is_negative();
+            if is_negative {
+                self.count = self.cursor.read_var::<u32>()? + 2;
+                self.last = (-s.value()) as u128;
+            } else {
+                self.count = 1;
+                self.last = s.value() as u128;
+            }
+        }
+        self.count -= 1;
+        Ok(self.last)
+    }
+}
+
 struct UIntOptRleDecoder<'a> {
     cursor: Cursor<'a>,
     last: u64,
@@ -421,7 +454,7 @@ impl<'a> UIntOptRleDecoder<'a> {
 
     fn read_u64(&mut self) -> Result<u64, Error> {
         if self.count == 0 {
-            let s = self.cursor.read_var_signed::<i64>()?;
+            let s = self.cursor.read_var_signed::<i128>()?;
             // if the sign is negative, we read the count too, otherwise count is 1
             let is_negative = s.is_negative();
             if is_negative {
