@@ -56,6 +56,64 @@ impl VarInt for u128 {
     }
 }
 
+impl VarInt for i128 {
+    fn write<W: Write>(&self, w: &mut W) {
+        let mut value = *self;
+        let is_negative = value < 0;
+        value = if is_negative { -value } else { value };
+        w.write_u8(
+            // whether to continue reading
+            (if value > 0b00111111 as i128 { 0b10000000 } else { 0 })
+                // whether number is negative
+                | (if is_negative { 0b01000000 } else { 0 })
+                // number
+                | ((0b00111111 as i128 & value) as u8),
+        );
+        value >>= 6;
+        while value > 0 {
+            w.write_u8(
+                if value > 0b01111111 as i128 {
+                    0b10000000
+                } else {
+                    0
+                } | ((0b01111111 as i128 & value) as u8),
+            );
+            value >>= 7;
+        }
+    }
+
+    #[inline]
+    fn read<R: Read>(r: &mut R) -> Result<Self, Error> {
+        let mut value = 0i128;
+        let mut len: usize = 0;
+        let mut is_negative = false;
+        let mut x = r.read_u8()?;
+        if x & 0b01000000 != 0 {
+            is_negative = true;
+        }
+        value |= (x & 0b00111111) as i128;
+        if x >= 0b10000000 {
+            loop {
+                len += 6;
+                x = r.read_u8()?;
+                value |= i128::wrapping_shl((x & 0b01111111) as i128, len as u32);
+                if x < 0b10000000 {
+                    break;
+                }
+                len += 1;
+                if len > 180 {
+                    return Err(Error::VarIntSizeExceeded(180));
+                }
+            }
+        }
+        if is_negative {
+            value = -value;
+        }
+        Ok(value)
+    }
+}
+
+
 impl VarInt for U256 {
     fn write<W: Write>(&self, w: &mut W) {
         let mut value = *self;
@@ -408,6 +466,56 @@ impl SignedVarInt for i64 {
             }
             if len > 70 {
                 return Err(Error::VarIntSizeExceeded(70));
+            }
+        }
+    }
+}
+
+impl SignedVarInt for i128 {
+    fn write_signed<W: Write>(s: &Signed<Self>, w: &mut W) {
+        let mut value = s.value;
+        let is_negative = s.is_negative;
+        value = if is_negative { -value } else { value };
+        w.write_u8(
+            // whether to continue reading
+            (if value > 0b00111111 as i128 { 0b10000000 } else { 0 })
+                // whether number is negative
+                | (if is_negative { 0b01000000 } else { 0 })
+                // number
+                | ((0b00111111 as i128 & value) as u8),
+        );
+        value >>= 6;
+        while value > 0 {
+            w.write_u8(
+                if value > 0b01111111 as i128 {
+                    0b10000000
+                } else {
+                    0
+                } | ((0b01111111 as i128 & value) as u8),
+            );
+            value >>= 7;
+        }
+    }
+
+    fn read_signed<R: Read>(reader: &mut R) -> Result<Signed<Self>, Error> {
+        let mut r = reader.read_u8()?;
+        let mut num = (r & 0b00111111 as u8) as i128;
+        let mut len: u32 = 6;
+        let is_negative = r & 0b01000000 as u8 > 0;
+        if r & 0b10000000 as u8 == 0 {
+            let num = if is_negative { -num } else { num };
+            return Ok(Signed::new(num, is_negative));
+        }
+        loop {
+            r = reader.read_u8()?;
+            num |= (r as i128 & 0b01111111 as i128) << len;
+            len += 7;
+            if r < 0b10000000 as u8 {
+                let num = if is_negative { -num } else { num };
+                return Ok(Signed::new(num, is_negative));
+            }
+            if len > 140 {
+                return Err(Error::VarIntSizeExceeded(140));
             }
         }
     }
