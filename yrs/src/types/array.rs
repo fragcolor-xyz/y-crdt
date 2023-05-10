@@ -1,4 +1,4 @@
-use crate::block::{BlockPtr, EmbedPrelim, ItemContent, Prelim, Unused};
+use crate::block::{BlockPtr, EmbedPrelim, ItemContent, Prelim, Unused, ClockType};
 use crate::block_iter::BlockIter;
 use crate::moving::StickyIndex;
 use crate::transaction::TransactionMut;
@@ -142,7 +142,7 @@ impl TryFrom<BlockPtr> for ArrayRef {
 
 pub trait Array: AsRef<Branch> {
     /// Returns a number of elements stored in current array.
-    fn len<T: ReadTxn>(&self, txn: &T) -> u32 {
+    fn len<T: ReadTxn>(&self, txn: &T) -> ClockType {
         self.as_ref().len()
     }
 
@@ -155,7 +155,7 @@ pub trait Array: AsRef<Branch> {
     /// # Panics
     ///
     /// This method will panic if provided `index` is greater than the current length of an [ArrayRef].
-    fn insert<V>(&self, txn: &mut TransactionMut, index: u32, value: V) -> V::Return
+    fn insert<V>(&self, txn: &mut TransactionMut, index: ClockType, value: V) -> V::Return
     where
         V: Prelim,
     {
@@ -179,7 +179,7 @@ pub trait Array: AsRef<Branch> {
     /// # Panics
     ///
     /// This method will panic if provided `index` is greater than the current length of an [ArrayRef].
-    fn insert_range<T, V>(&self, txn: &mut TransactionMut, index: u32, values: T)
+    fn insert_range<T, V>(&self, txn: &mut TransactionMut, index: ClockType, values: T)
     where
         T: IntoIterator<Item = V>,
         V: Into<Any>,
@@ -209,7 +209,7 @@ pub trait Array: AsRef<Branch> {
     }
 
     /// Removes a single element at provided `index`.
-    fn remove(&self, txn: &mut TransactionMut, index: u32) {
+    fn remove(&self, txn: &mut TransactionMut, index: ClockType) {
         self.remove_range(txn, index, 1)
     }
 
@@ -217,7 +217,7 @@ pub trait Array: AsRef<Branch> {
     /// a particular number described by `len` has been deleted. This method panics in case when
     /// not all expected elements were removed (due to insufficient number of elements in an array)
     /// or `index` is outside of the bounds of an array.
-    fn remove_range(&self, txn: &mut TransactionMut, index: u32, len: u32) {
+    fn remove_range(&self, txn: &mut TransactionMut, index: ClockType, len: ClockType) {
         let mut walker = BlockIter::new(BranchPtr::from(self.as_ref()));
         if walker.try_forward(txn, index) {
             walker.delete(txn, len)
@@ -228,7 +228,7 @@ pub trait Array: AsRef<Branch> {
 
     /// Retrieves a value stored at a given `index`. Returns `None` when provided index was out
     /// of the range of a current array.
-    fn get<T: ReadTxn>(&self, txn: &T, index: u32) -> Option<Value> {
+    fn get<T: ReadTxn>(&self, txn: &T, index: ClockType) -> Option<Value> {
         let mut walker = BlockIter::new(BranchPtr::from(self.as_ref()));
         if walker.try_forward(txn, index) {
             walker.read_value(txn)
@@ -244,7 +244,7 @@ pub trait Array: AsRef<Branch> {
     ///
     /// This method panics if either `source` or `target` indexes are greater than current array's
     /// length.
-    fn move_to(&self, txn: &mut TransactionMut, source: u32, target: u32) {
+    fn move_to(&self, txn: &mut TransactionMut, source: ClockType, target: ClockType) {
         if source == target || source + 1 == target {
             // It doesn't make sense to move a range into the same range (it's basically a no-op).
             return;
@@ -289,11 +289,11 @@ pub trait Array: AsRef<Branch> {
     fn move_range_to(
         &self,
         txn: &mut TransactionMut,
-        start: u32,
+        start: ClockType,
         assoc_start: Assoc,
-        end: u32,
+        end: ClockType,
         assoc_end: Assoc,
-        target: u32,
+        target: ClockType,
     ) {
         if start <= target && target <= end {
             // It doesn't make sense to move a range into the same range (it's basically a no-op).
@@ -514,6 +514,7 @@ impl ArrayEvent {
 
 #[cfg(test)]
 mod test {
+    use crate::block::ClockType;
     use crate::test_utils::{exchange_updates, run_scenario, RngExt};
     use crate::types::map::MapPrelim;
     use crate::types::{Change, DeepObservable, Event, Path, PathSegment, ToJson, Value};
@@ -1082,7 +1083,7 @@ mod test {
             let mut pos = rng.between(0, yarray.len(&txn)) as usize;
             if let Any::Array(expected) = yarray.to_json(&txn) {
                 let mut expected = Vec::from(expected);
-                yarray.insert_range(&mut txn, pos as u32, content.clone());
+                yarray.insert_range(&mut txn, pos as ClockType, content.clone());
 
                 for any in content {
                     expected.insert(pos, any);

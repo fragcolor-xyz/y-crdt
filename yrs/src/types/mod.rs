@@ -4,6 +4,7 @@ pub mod text;
 pub mod xml;
 
 use crate::*;
+use crate::block::ClockType;
 pub use map::Map;
 pub use map::MapRef;
 use std::borrow::Borrow;
@@ -275,9 +276,9 @@ pub struct Branch {
 
     /// A length of an indexed sequence component of a current branch node. Map component elements
     /// are computed on demand.
-    pub block_len: u32,
+    pub block_len: ClockType,
 
-    pub content_len: u32,
+    pub content_len: ClockType,
 
     /// An identifier of an underlying complex data type (eg. is it an Array or a Map).
     type_ref: TypeRefs,
@@ -336,11 +337,11 @@ impl Branch {
 
     /// Returns a length of an indexed sequence component of a current branch node.
     /// Map component elements are computed on demand.
-    pub fn len(&self) -> u32 {
+    pub fn len(&self) -> ClockType {
         self.block_len
     }
 
-    pub fn content_len(&self) -> u32 {
+    pub fn content_len(&self) -> ClockType {
         self.content_len
     }
 
@@ -371,7 +372,7 @@ impl Branch {
     /// location within wrapping item content.
     /// If `index` was outside of the array component boundary of current branch node, `None` will
     /// be returned.
-    pub(crate) fn get_at(&self, mut index: u32) -> Option<(&ItemContent, usize)> {
+    pub(crate) fn get_at(&self, mut index: ClockType) -> Option<(&ItemContent, usize)> {
         let mut ptr = self.start.as_ref();
         while let Some(Block::Item(item)) = ptr.map(BlockPtr::deref) {
             let len = item.len();
@@ -428,7 +429,7 @@ impl Branch {
     fn index_to_ptr(
         txn: &mut TransactionMut,
         mut ptr: Option<BlockPtr>,
-        mut index: u32,
+        mut index: ClockType,
     ) -> (Option<BlockPtr>, Option<BlockPtr>) {
         let encoding = txn.store.options.offset_kind;
         while let Some(Block::Item(item)) = ptr.as_deref() {
@@ -465,7 +466,7 @@ impl Branch {
     }
     /// Removes up to a `len` of countable elements from current branch sequence, starting at the
     /// given `index`. Returns number of removed elements.
-    pub(crate) fn remove_at(&self, txn: &mut TransactionMut, index: u32, len: u32) -> u32 {
+    pub(crate) fn remove_at(&self, txn: &mut TransactionMut, index: ClockType, len: ClockType) -> ClockType {
         let mut remaining = len;
         let start = { self.start };
         let (_, mut ptr) = if index == 0 {
@@ -520,7 +521,7 @@ impl Branch {
     pub(crate) fn insert_at<V: Prelim>(
         &self,
         txn: &mut TransactionMut,
-        index: u32,
+        index: ClockType,
         value: V,
     ) -> BlockPtr {
         let (start, parent) = {
@@ -1122,7 +1123,7 @@ pub enum PathSegment {
 
     /// Index segments are used to inform how to access child shared collections within an [Array]
     /// or [XmlElement] types.
-    Index(u32),
+    Index(ClockType),
 }
 
 pub(crate) struct ChangeSet<D> {
@@ -1151,11 +1152,11 @@ pub enum Change {
 
     /// Determines a change that resulted in removing a consecutive range of existing elements,
     /// either XML child nodes for [XmlElement] or various elements stored in an [Array].
-    Removed(u32),
+    Removed(ClockType),
 
     /// Determines a number of consecutive unchanged elements. Used to recognize non-edited spaces
     /// between [Change::Added] and/or [Change::Removed] chunks.
-    Retain(u32),
+    Retain(ClockType),
 }
 
 /// A single change done over a map-component of shared data type.
@@ -1180,12 +1181,12 @@ pub enum Delta {
     Inserted(Value, Option<Box<Attrs>>),
 
     /// Determines a change that resulted in removing a consecutive range of characters.
-    Deleted(u32),
+    Deleted(ClockType),
 
     /// Determines a number of consecutive unchanged characters. Used to recognize non-edited spaces
     /// between [Delta::Inserted] and/or [Delta::Deleted] chunks. Can contain an optional set of
     /// attributes, which have been used to format an existing piece of text.
-    Retain(u32, Option<Box<Attrs>>),
+    Retain(ClockType, Option<Box<Attrs>>),
 }
 
 /// An alias for map of attributes used as formatting parameters by [Text] and [XmlText] types.

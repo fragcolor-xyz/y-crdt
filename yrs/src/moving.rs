@@ -1,4 +1,4 @@
-use crate::block::{Block, BlockPtr, ItemContent, Prelim, Unused};
+use crate::block::{Block, BlockPtr, ItemContent, Prelim, Unused, ClockType};
 use crate::block_iter::BlockIter;
 use crate::transaction::TransactionMut;
 use crate::types::{Branch, BranchPtr};
@@ -459,7 +459,7 @@ impl StickyIndex {
     ///
     /// text.insert(&mut txn, 0, "hello world");
     ///
-    /// const INDEX: u32 = 4;
+    /// const INDEX: u64 = 4;
     ///
     /// // set perma index at position before letter 'o' => "hell.o world"
     /// let pos = text.sticky_index(&mut txn, INDEX, Assoc::After).unwrap();
@@ -474,7 +474,7 @@ impl StickyIndex {
     /// ```
     pub fn get_offset<T: ReadTxn>(&self, txn: &T) -> Option<Offset> {
         let mut branch = None;
-        let mut index = 0;
+        let mut index: ClockType = 0;
 
         match &self.scope {
             IndexScope::Relative(right_id) => {
@@ -554,7 +554,7 @@ impl StickyIndex {
     pub fn at(
         txn: &mut TransactionMut,
         branch: BranchPtr,
-        mut index: u32,
+        mut index: ClockType,
         assoc: Assoc,
     ) -> Option<Self> {
         if assoc == Assoc::Before {
@@ -755,7 +755,7 @@ pub trait IndexedSequence: AsRef<Branch> {
     fn sticky_index(
         &self,
         txn: &mut TransactionMut,
-        index: u32,
+        index: ClockType,
         assoc: Assoc,
     ) -> Option<StickyIndex> {
         StickyIndex::at(txn, BranchPtr::from(self.as_ref()), index, assoc)
@@ -769,13 +769,13 @@ pub struct Offset {
     /// Pointer to a collection type [Offset] refers to.
     pub branch: BranchPtr,
     /// Human readable index corresponding to this [Offset].
-    pub index: u32,
+    pub index: ClockType,
     /// Association type used by [StickyIndex] this structure was created from.
     pub assoc: Assoc,
 }
 
 impl Offset {
-    fn new(branch: BranchPtr, index: u32, assoc: Assoc) -> Self {
+    fn new(branch: BranchPtr, index: ClockType, assoc: Assoc) -> Self {
         Offset {
             branch,
             index,

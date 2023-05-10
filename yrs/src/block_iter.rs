@@ -1,4 +1,4 @@
-use crate::block::{Block, BlockPtr, Item, ItemContent, Prelim};
+use crate::block::{Block, BlockPtr, Item, ItemContent, Prelim, ClockType};
 use crate::moving::{Move, StickyIndex};
 use crate::transaction::{ReadTxn, TransactionMut};
 use crate::types::{BranchPtr, TypePtr, Value};
@@ -10,8 +10,8 @@ use std::ops::DerefMut;
 #[derive(Debug, Clone)]
 pub(crate) struct BlockIter {
     branch: BranchPtr,
-    index: u32,
-    rel: u32,
+    index: ClockType,
+    rel: ClockType,
     next_item: Option<BlockPtr>,
     curr_move: Option<BlockPtr>,
     curr_move_start: Option<BlockPtr>,
@@ -38,7 +38,7 @@ impl BlockIter {
     }
 
     #[inline]
-    pub fn rel(&self) -> u32 {
+    pub fn rel(&self) -> ClockType {
         self.rel
     }
 
@@ -70,7 +70,7 @@ impl BlockIter {
         }
     }
 
-    pub fn move_to(&mut self, index: u32, txn: &mut TransactionMut) {
+    pub fn move_to(&mut self, index: ClockType, txn: &mut TransactionMut) {
         if index > self.index {
             if !self.try_forward(txn, index - self.index) {
                 panic!("Block iter couldn't move forward");
@@ -80,7 +80,7 @@ impl BlockIter {
         }
     }
 
-    fn can_forward(&self, ptr: Option<BlockPtr>, len: u32) -> bool {
+    fn can_forward(&self, ptr: Option<BlockPtr>, len: ClockType) -> bool {
         if !self.reached_end || self.curr_move.is_some() {
             if len > 0 {
                 return true;
@@ -96,13 +96,13 @@ impl BlockIter {
         false
     }
 
-    pub fn forward<T: ReadTxn>(&mut self, txn: &T, len: u32) {
+    pub fn forward<T: ReadTxn>(&mut self, txn: &T, len: ClockType) {
         if !self.try_forward(txn, len) {
             panic!("Length exceeded")
         }
     }
 
-    pub fn try_forward<T: ReadTxn>(&mut self, txn: &T, mut len: u32) -> bool {
+    pub fn try_forward<T: ReadTxn>(&mut self, txn: &T, mut len: ClockType) -> bool {
         if len == 0 && self.next_item.is_none() {
             return true;
         }
@@ -183,7 +183,7 @@ impl BlockIter {
         }
     }
 
-    pub fn backward<T: ReadTxn>(&mut self, txn: &mut T, mut len: u32) {
+    pub fn backward<T: ReadTxn>(&mut self, txn: &mut T, mut len: ClockType) {
         if self.index < len {
             panic!("Length exceeded");
         }
@@ -297,7 +297,7 @@ impl BlockIter {
         self.reached_end = false;
     }
 
-    pub fn delete(&mut self, txn: &mut TransactionMut, mut len: u32) {
+    pub fn delete(&mut self, txn: &mut TransactionMut, mut len: ClockType) {
         let mut item = self.next_item;
         if self.index + len > self.branch.content_len() {
             panic!("Length exceeded");
@@ -362,15 +362,15 @@ impl BlockIter {
         self.next_item = item;
     }
 
-    pub(crate) fn slice<T: ReadTxn>(&mut self, txn: &T, buf: &mut [Value]) -> u32 {
-        let mut len = buf.len() as u32;
+    pub(crate) fn slice<T: ReadTxn>(&mut self, txn: &T, buf: &mut [Value]) -> ClockType {
+        let mut len = buf.len() as ClockType;
         if self.index + len > self.branch.content_len() {
             return 0;
         }
         self.index += len;
         let mut next_item = self.next_item;
         let encoding = txn.store().options.offset_kind;
-        let mut read = 0u32;
+        let mut read: ClockType = 0;
         while len > 0 {
             if !self.reached_end {
                 while let Some(mut ptr) = next_item {
@@ -385,7 +385,7 @@ impl BlockIter {
                                 let r = item
                                     .content
                                     .read(self.rel as usize, &mut buf[read as usize..])
-                                    as u32;
+                                    as ClockType;
                                 read += r;
                                 len -= r;
                                 if self.rel + r == item.content_len(encoding) {
