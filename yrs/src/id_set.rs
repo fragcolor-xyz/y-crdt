@@ -1,4 +1,4 @@
-use crate::block::{BlockPtr, ClientID, ID};
+use crate::block::{BlockPtr, ClientID, ID, ClockType};
 use crate::block_store::BlockStore;
 use crate::store::Store;
 use crate::updates::decoder::{Decode, Decoder};
@@ -14,14 +14,14 @@ use std::ops::Range;
 // Note: use native Rust [Range](https://doc.rust-lang.org/std/ops/struct.Range.html)
 // as it's left-inclusive/right-exclusive and defines the exact capabilities we care about here.
 
-impl Encode for Range<u32> {
+impl Encode for Range<u64> {
     fn encode<E: Encoder>(&self, encoder: &mut E) {
         encoder.write_ds_clock(self.start);
         encoder.write_ds_len(self.end - self.start)
     }
 }
 
-impl Decode for Range<u32> {
+impl Decode for Range<u64> {
     fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, Error> {
         let clock = decoder.read_ds_clock()?;
         let len = decoder.read_ds_len()?;
@@ -34,10 +34,10 @@ impl Decode for Range<u32> {
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum IdRange {
     /// A single continuous range of clocks.
-    Continuous(Range<u32>),
+    Continuous(Range<ClockType>),
     /// A multiple ranges containing clock values, separated from each other by other clock ranges
     /// not included in this [IdRange].
-    Fragmented(Vec<Range<u32>>),
+    Fragmented(Vec<Range<ClockType>>),
 }
 
 impl IdRange {
@@ -78,7 +78,7 @@ impl IdRange {
     }
 
     /// Check if given clock exists within current [IdRange].
-    pub fn contains(&self, clock: u32) -> bool {
+    pub fn contains(&self, clock: ClockType) -> bool {
         match self {
             IdRange::Continuous(range) => range.contains(&clock),
             IdRange::Fragmented(ranges) => ranges.iter().any(|r| r.contains(&clock)),
@@ -94,7 +94,7 @@ impl IdRange {
         IdRangeIter { range, inner }
     }
 
-    fn push(&mut self, range: Range<u32>) {
+    fn push(&mut self, range: Range<ClockType>) {
         match self {
             IdRange::Continuous(r) => {
                 if r.end >= range.start {
@@ -230,7 +230,7 @@ impl IdRange {
     }
 
     #[inline]
-    fn try_join(a: &mut Range<u32>, b: &Range<u32>) -> bool {
+    fn try_join(a: &mut Range<u64>, b: &Range<u64>) -> bool {
         if Self::disjoint(a, b) {
             false
         } else {
@@ -241,7 +241,7 @@ impl IdRange {
     }
 
     #[inline]
-    fn disjoint(a: &Range<u32>, b: &Range<u32>) -> bool {
+    fn disjoint(a: &Range<u64>, b: &Range<u64>) -> bool {
         a.start > b.end || b.start > a.end
     }
 }
@@ -285,12 +285,12 @@ impl Decode for IdRange {
 }
 
 pub struct IdRangeIter<'a> {
-    inner: Option<std::slice::Iter<'a, Range<u32>>>,
-    range: Option<&'a Range<u32>>,
+    inner: Option<std::slice::Iter<'a, Range<u64>>>,
+    range: Option<&'a Range<u64>>,
 }
 
 impl<'a> Iterator for IdRangeIter<'a> {
-    type Item = &'a Range<u32>;
+    type Item = &'a Range<u64>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(inner) = &mut self.inner {
@@ -362,7 +362,7 @@ impl IdSet {
         }
     }
 
-    pub fn insert(&mut self, id: ID, len: u32) {
+    pub fn insert(&mut self, id: ID, len: ClockType) {
         let range = id.clock..(id.clock + len);
         match self.0.entry(id.client) {
             Entry::Occupied(r) => {
@@ -527,7 +527,7 @@ impl DeleteSet {
 
     /// Inserts an information about delete block (identified by `id` and having a specified length)
     /// inside of a current delete set.
-    pub fn insert(&mut self, id: ID, len: u32) {
+    pub fn insert(&mut self, id: ID, len: ClockType) {
         self.0.insert(id, len)
     }
 
@@ -611,7 +611,7 @@ impl Encode for DeleteSet {
 pub(crate) struct DeletedBlocks<'ds, 'txn, 'doc> {
     txn: &'txn mut TransactionMut<'doc>,
     ds_iter: Iter<'ds>,
-    current_range: Option<&'ds Range<u32>>,
+    current_range: Option<&'ds Range<ClockType>>,
     current_client_id: Option<ClientID>,
     range_iter: Option<IdRangeIter<'ds>>,
     current_index: Option<usize>,

@@ -1,4 +1,4 @@
-use crate::block::ClientID;
+use crate::block::{ClientID, ClockType};
 use crate::*;
 use lib0::any::Any;
 use lib0::encoding::Write;
@@ -38,10 +38,10 @@ pub trait Encoder: Write {
     fn reset_ds_cur_val(&mut self);
 
     /// Write a clock value of currently encoded [DeleteSet] client.
-    fn write_ds_clock(&mut self, clock: u32);
+    fn write_ds_clock(&mut self, clock: ClockType);
 
     /// Write a number of client entries used by currently encoded [DeleteSet].
-    fn write_ds_len(&mut self, len: u32);
+    fn write_ds_len(&mut self, len: ClockType);
 
     /// Write unique identifier of a currently encoded [Block]'s left origin.
     fn write_left_id(&mut self, id: &block::ID);
@@ -64,7 +64,7 @@ pub trait Encoder: Write {
     fn write_type_ref(&mut self, info: u8);
 
     /// Write length parameter.
-    fn write_len(&mut self, len: u32);
+    fn write_len(&mut self, len: ClockType);
 
     /// Encode JSON-like data type. This is a complex structure which is an extension to JavaScript
     /// Object Notation with some extra cases.
@@ -119,12 +119,12 @@ impl Encoder for EncoderV1 {
     }
 
     #[inline]
-    fn write_ds_clock(&mut self, clock: u32) {
+    fn write_ds_clock(&mut self, clock: ClockType) {
         self.write_var(clock)
     }
 
     #[inline]
-    fn write_ds_len(&mut self, len: u32) {
+    fn write_ds_len(&mut self, len: ClockType) {
         self.write_var(len)
     }
 
@@ -159,7 +159,7 @@ impl Encoder for EncoderV1 {
     }
 
     #[inline]
-    fn write_len(&mut self, len: u32) {
+    fn write_len(&mut self, len: ClockType) {
         self.write_var(len)
     }
 
@@ -181,10 +181,10 @@ impl Encoder for EncoderV1 {
 }
 
 pub struct EncoderV2 {
-    key_table: HashMap<String, u32>,
+    key_table: HashMap<String, ClockType>,
     buf: Vec<u8>,
-    ds_curr_val: u32,
-    seqeuncer: u32,
+    ds_curr_val: ClockType,
+    seqeuncer: ClockType,
     key_clock_encoder: IntDiffOptRleEncoder,
     client_encoder: UInt128OptRleEncoder,
     left_clock_encoder: IntDiffOptRleEncoder,
@@ -265,13 +265,13 @@ impl Encoder for EncoderV2 {
         self.ds_curr_val = 0;
     }
 
-    fn write_ds_clock(&mut self, clock: u32) {
+    fn write_ds_clock(&mut self, clock: ClockType) {
         let diff = clock - self.ds_curr_val;
         self.ds_curr_val = clock;
         self.buf.write_var(diff)
     }
 
-    fn write_ds_len(&mut self, len: u32) {
+    fn write_ds_len(&mut self, len: ClockType) {
         debug_assert!(len != 0);
         self.buf.write_var(len - 1);
         self.ds_curr_val += len;
@@ -279,12 +279,12 @@ impl Encoder for EncoderV2 {
 
     fn write_left_id(&mut self, id: &ID) {
         self.client_encoder.write_u128(id.client);
-        self.left_clock_encoder.write_u32(id.clock)
+        self.left_clock_encoder.write_u64(id.clock)
     }
 
     fn write_right_id(&mut self, id: &ID) {
         self.client_encoder.write_u128(id.client);
-        self.right_clock_encoder.write_u32(id.clock)
+        self.right_clock_encoder.write_u64(id.clock)
     }
 
     #[inline]
@@ -309,8 +309,8 @@ impl Encoder for EncoderV2 {
     }
 
     #[inline]
-    fn write_len(&mut self, len: u32) {
-        self.len_encoder.write_u64(len as u64);
+    fn write_len(&mut self, len: ClockType) {
+        self.len_encoder.write_u64(len);
     }
 
     #[inline]
@@ -328,7 +328,7 @@ impl Encoder for EncoderV2 {
 
     fn write_key(&mut self, key: &str) {
         //TODO: this is wrong (key_table is never updated), but this behavior matches Yjs
-        self.key_clock_encoder.write_u32(self.seqeuncer);
+        self.key_clock_encoder.write_u64(self.seqeuncer);
         self.seqeuncer += 1;
         if self.key_table.get(key).is_none() {
             self.string_encoder.write(key);
@@ -353,9 +353,9 @@ impl Encoder for EncoderV2 {
 /// Use this Encoder only when appropriate. In most cases, this is probably a bad idea.
 struct IntDiffOptRleEncoder {
     buf: Vec<u8>,
-    last: u32,
+    last: u64,
     count: u32,
-    diff: i32,
+    diff: i64,
 }
 
 impl IntDiffOptRleEncoder {
@@ -368,8 +368,8 @@ impl IntDiffOptRleEncoder {
         }
     }
 
-    fn write_u32(&mut self, value: u32) {
-        let diff = value as i32 - self.last as i32;
+    fn write_u64(&mut self, value: u64) {
+        let diff = value as i64 - self.last as i64;
         if self.diff == diff {
             self.last = value;
             self.count += 1;

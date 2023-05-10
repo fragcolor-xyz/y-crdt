@@ -1,6 +1,6 @@
 use crate::block::{
     Block, BlockPtr, BlockRange, BlockSlice, ClientID, Item, ItemContent, BLOCK_GC_REF_NUMBER,
-    BLOCK_SKIP_REF_NUMBER, HAS_ORIGIN, HAS_PARENT_SUB, HAS_RIGHT_ORIGIN,
+    BLOCK_SKIP_REF_NUMBER, HAS_ORIGIN, HAS_PARENT_SUB, HAS_RIGHT_ORIGIN, ClockType,
 };
 use crate::id_set::DeleteSet;
 #[cfg(test)]
@@ -134,7 +134,7 @@ impl Update {
                                         - b.id().clock as isize;
                                     if diff > 0 {
                                         // `b`'s clock position is inside of `a` -> we need to split `a`
-                                        if let Some(new) = a.splice(diff as u32) {
+                                        if let Some(new) = a.splice(diff as ClockType) {
                                             blocks.insert(i1 + 1, new);
                                         }
                                         //blocks = self.blocks.clients.get_mut(&client).unwrap();
@@ -193,7 +193,7 @@ impl Update {
             while let Some(mut block) = stack_head {
                 let id = *block.id();
                 if local_sv.contains(&id) {
-                    let offset = local_sv.get(&id.client) as i32 - id.clock as i32;
+                    let offset = local_sv.get(&id.client) as i64 - id.clock as i64;
                     if let Some(dep) = Self::missing(&block, &local_sv) {
                         stack.push(block);
                         // get the struct reader that has the missing struct
@@ -211,8 +211,8 @@ impl Update {
                                 stack = Vec::new();
                             }
                         }
-                    } else if offset == 0 || (offset as u32) < block.len() {
-                        let offset = offset as u32;
+                    } else if offset == 0 || (offset as ClockType) < block.len() {
+                        let offset = offset as ClockType;
                         let client = id.client;
                         local_sv.set_max(client, id.clock + block.len());
                         if let BlockCarrier::Block(block) = &mut block {
@@ -402,11 +402,11 @@ impl Update {
         let info = decoder.read_info()?;
         match info {
             BLOCK_SKIP_REF_NUMBER => {
-                let len: u32 = decoder.read_var()?;
+                let len: ClockType = decoder.read_var()?;
                 Ok(BlockCarrier::Skip(BlockRange { id, len }))
             }
             BLOCK_GC_REF_NUMBER => {
-                let len: u32 = decoder.read_len()?;
+                let len: ClockType = decoder.read_len()?;
                 Ok(Box::new(Block::GC(BlockRange { id, len })).into())
             }
             info => {
@@ -464,7 +464,7 @@ impl Update {
                     curr = iter.next();
                 } else if block.id().clock + block.len() > remote_clock {
                     let e = clients.entry(*client).or_insert_with(|| (0, Vec::new()));
-                    e.0 = (remote_clock as i64 - block.id().clock as i64).max(0) as u32;
+                    e.0 = (remote_clock as i64 - block.id().clock as i64).max(0) as ClockType;
                     e.1.push(block);
                     curr = iter.next();
                     while let Some(block) = curr {
@@ -622,13 +622,13 @@ impl Update {
                     // if (currWrite.struct.id.clock + currWrite.struct.length >= curr.id.clock) {
                     let diff = curr_write_last.saturating_sub(curr_block.id().clock);
 
-                    let mut block_slice = None;
+                    let mut block_slice: Option<BlockCarrier> = None;
                     if diff > 0 {
                         if let BlockCarrier::Skip(skip) = curr_write_block {
                             // prefer to slice Skip because the other struct might contain more information
-                            skip.len -= diff as u32;
+                            skip.len -= diff;
                         } else {
-                            block_slice = Some(curr_block.splice(diff as u32).unwrap());
+                            block_slice = Some(curr_block.splice(diff).unwrap());
                         }
                     }
 
@@ -680,7 +680,7 @@ impl Encode for Update {
 impl Decode for Update {
     fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, Error> {
         // read blocks
-        let clients_len: u32 = decoder.read_var()?;
+        let clients_len: ClockType = decoder.read_var()?;
         let mut blocks = UpdateBlocks {
             clients: HashMap::with_capacity_and_hasher(
                 clients_len as usize,
@@ -688,10 +688,10 @@ impl Decode for Update {
             ),
         };
         for _ in 0..clients_len {
-            let blocks_len = decoder.read_var::<u32>()? as usize;
+            let blocks_len = decoder.read_var::<ClockType>()? as usize;
 
             let client = decoder.read_client()?;
-            let mut clock: u32 = decoder.read_var()?;
+            let mut clock: ClockType = decoder.read_var()?;
             let blocks = blocks
                 .clients
                 .entry(client)
@@ -753,7 +753,7 @@ pub(crate) enum BlockCarrier {
 }
 
 impl BlockCarrier {
-    pub(crate) fn splice(&self, offset: u32) -> Option<Self> {
+    pub(crate) fn splice(&self, offset: ClockType) -> Option<Self> {
         match self {
             BlockCarrier::Block(x) => {
                 let next = BlockPtr::from(x).splice(offset, OffsetKind::Utf16)?;
@@ -782,7 +782,7 @@ impl BlockCarrier {
         }
     }
 
-    pub(crate) fn len(&self) -> u32 {
+    pub(crate) fn len(&self) -> ClockType {
         match self {
             BlockCarrier::Block(x) => x.len(),
             BlockCarrier::Skip(x) => x.len,
@@ -832,7 +832,7 @@ impl BlockCarrier {
             false
         }
     }
-    pub fn encode_with_offset<E: Encoder>(&self, encoder: &mut E, offset: u32) {
+    pub fn encode_with_offset<E: Encoder>(&self, encoder: &mut E, offset: ClockType) {
         match self {
             BlockCarrier::Block(x) => {
                 let slice = BlockSlice::new(x.into(), offset, x.len() - 1);
@@ -845,7 +845,7 @@ impl BlockCarrier {
         }
     }
 
-    pub fn integrate(&mut self, txn: &mut TransactionMut, offset: u32) -> bool {
+    pub fn integrate(&mut self, txn: &mut TransactionMut, offset: ClockType) -> bool {
         match self {
             BlockCarrier::Block(x) => BlockPtr::from(x).integrate(txn, offset),
             BlockCarrier::Skip(x) => x.integrate(offset),

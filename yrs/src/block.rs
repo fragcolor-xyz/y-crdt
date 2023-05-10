@@ -69,6 +69,7 @@ pub const HAS_PARENT_SUB: u8 = 0b00100000;
 /// Globally unique client identifier. No two active peers are allowed to share the same [ClientID].
 /// If that happens, following updates may cause document store to be corrupted and desync in a result.
 pub type ClientID = u128;
+pub type ClockType = u64;
 
 /// Block identifier, which allows to uniquely identify any element insertion in a global scope
 /// (across different replicas of the same document). It consists of client ID (which is a unique
@@ -85,11 +86,11 @@ pub struct ID {
     /// operation in a scope of a given `client`. This value doesn't have to increase by 1, but
     /// instead is increased by number of countable elements which make a content of an inserted
     /// block.
-    pub clock: u32,
+    pub clock: ClockType,
 }
 
 impl ID {
-    pub fn new(client: ClientID, clock: u32) -> Self {
+    pub fn new(client: ClientID, clock: ClockType) -> Self {
         ID { client, clock }
     }
 }
@@ -299,7 +300,7 @@ impl BlockPtr {
         }
     }
 
-    pub(crate) fn splice(&mut self, offset: u32, encoding: OffsetKind) -> Option<Box<Block>> {
+    pub(crate) fn splice(&mut self, offset: ClockType, encoding: OffsetKind) -> Option<Box<Block>> {
         let self_ptr = self.clone();
         if offset == 0 {
             None
@@ -350,7 +351,7 @@ impl BlockPtr {
 
     /// Integrates current block into block store.
     /// If it returns true, it means that the block should be deleted after being added to a block store.
-    pub(crate) fn integrate(&mut self, txn: &mut TransactionMut, offset: u32) -> bool {
+    pub(crate) fn integrate(&mut self, txn: &mut TransactionMut, offset: ClockType) -> bool {
         let self_ptr = self.clone();
         match self.deref_mut() {
             Block::GC(this) => this.integrate(offset),
@@ -751,12 +752,12 @@ impl TryFrom<BlockPtr> for Any {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) struct BlockSlice {
     ptr: BlockPtr,
-    start: u32,
-    end: u32,
+    start: ClockType,
+    end: ClockType,
 }
 
 impl BlockSlice {
-    pub fn new(ptr: BlockPtr, start: u32, end: u32) -> Self {
+    pub fn new(ptr: BlockPtr, start: ClockType, end: ClockType) -> Self {
         debug_assert!(start <= end);
         BlockSlice { ptr, start, end }
     }
@@ -795,7 +796,7 @@ impl BlockSlice {
 
     /// Returns the number of elements (counted as Yjs ID clock length) of the block range described
     /// by current [BlockSlice].
-    pub fn len(&self) -> u32 {
+    pub fn len(&self) -> ClockType {
         self.end - self.start + 1
     }
 
@@ -805,12 +806,12 @@ impl BlockSlice {
     }
 
     /// Returns an offset within contained [Block] marking the (inclusive) beginning of this slice.
-    pub fn start(&self) -> u32 {
+    pub fn start(&self) -> ClockType {
         self.start
     }
 
     /// Returns an offset within contained [Block] marking the (inclusive) end of this slice.
-    pub fn end(&self) -> u32 {
+    pub fn end(&self) -> ClockType {
         self.end
     }
 
@@ -1060,7 +1061,7 @@ impl Block {
     /// Yjs we need to calculate string length in terms of UTF-16 character encoding.
     /// However depending on used [Encoding] scheme we may calculate string length/offsets
     /// differently.
-    pub fn len(&self) -> u32 {
+    pub fn len(&self) -> ClockType {
         match self {
             Block::Item(item) => item.len(),
             Block::GC(gc) => gc.len,
@@ -1109,7 +1110,7 @@ pub(crate) struct ItemPosition {
     pub parent: types::TypePtr,
     pub left: Option<BlockPtr>,
     pub right: Option<BlockPtr>,
-    pub index: u32,
+    pub index: ClockType,
     pub current_attrs: Option<Box<Attrs>>,
 }
 
@@ -1257,7 +1258,7 @@ pub struct Item {
     pub(crate) id: ID,
 
     /// A number of splittable updates within a current [Item].
-    pub(crate) len: u32,
+    pub(crate) len: ClockType,
 
     /// Pointer to left neighbor of this item. Used in sequenced collections.
     /// If `None`, then current item is the first one on its [parent](Item::parent) collection.
@@ -1305,11 +1306,11 @@ pub struct BlockRange {
     /// [ID] of the first update stored within current [BlockRange] bounds.
     pub id: ID,
     /// Number of splittable updates stored within this [BlockRange].
-    pub len: u32,
+    pub len: ClockType,
 }
 
 impl BlockRange {
-    pub fn new(id: ID, len: u32) -> Self {
+    pub fn new(id: ID, len: ClockType) -> Self {
         BlockRange { id, len }
     }
 
@@ -1332,14 +1333,14 @@ impl BlockRange {
     /// assert_eq!(b.id, ID::new(1, 5));
     /// assert_eq!(b.last_id(), ID::new(1, 10));
     /// ```
-    pub fn slice(&self, offset: u32) -> Self {
+    pub fn slice(&self, offset: ClockType) -> Self {
         let mut next = self.clone();
         next.id.clock += offset;
         next.len -= offset;
         next
     }
 
-    pub(crate) fn integrate(&mut self, pivot: u32) -> bool {
+    pub(crate) fn integrate(&mut self, pivot: ClockType) -> bool {
         if pivot > 0 {
             self.id.clock += pivot;
             self.len -= pivot;
@@ -1503,11 +1504,11 @@ impl Item {
     /// Returns a number of elements stored within this item. These elements don't have to exists
     /// in reality ie. when item has been deleted, corresponding content no longer exists but `len`
     /// still refers to a number of elements current block used to represent.
-    pub fn len(&self) -> u32 {
+    pub fn len(&self) -> ClockType {
         self.len
     }
 
-    pub fn content_len(&self, kind: OffsetKind) -> u32 {
+    pub fn content_len(&self, kind: OffsetKind) -> ClockType {
         self.content.len(kind)
     }
 
@@ -1561,7 +1562,7 @@ impl SplittableString {
     /// Maps given offset onto block offset. This means, that given an `offset` provided
     /// in given `encoding` we want the output as a UTF-16 compatible offset (required
     /// by Yjs for compatibility reasons).
-    pub(crate) fn block_offset(&self, offset: u32, kind: OffsetKind) -> u32 {
+    pub(crate) fn block_offset(&self, offset: ClockType, kind: OffsetKind) -> ClockType {
         match kind {
             OffsetKind::Utf16 => offset,
             OffsetKind::Bytes => {
@@ -1573,8 +1574,8 @@ impl SplittableString {
                     if remaining == 0 {
                         break;
                     }
-                    remaining -= c.len_utf8() as u32;
-                    i += c.len_utf16() as u32;
+                    remaining -= c.len_utf8() as ClockType;
+                    i += c.len_utf16() as ClockType;
                 }
                 i
             }
@@ -1582,7 +1583,7 @@ impl SplittableString {
                 .content
                 .chars()
                 .take(offset as usize)
-                .fold(0, |sum, c| sum + c.len_utf16() as u32),
+                .fold(0, |sum, c| sum + c.len_utf16() as ClockType),
         }
     }
 
@@ -1680,7 +1681,7 @@ pub enum ItemContent {
 
     /// A marker for delete item data, which describes a number of deleted elements.
     /// Deleted elements also don't contribute to an overall length of containing collection type.
-    Deleted(u32),
+    Deleted(ClockType),
 
     /// Sub-document container. Contains weak reference to a parent document and a child document.
     Doc(Option<WeakStoreRef>, Doc),
@@ -1756,12 +1757,12 @@ impl ItemContent {
     ///
     /// In cases of counting number of visible elements, `len` method should be used together with
     /// [ItemContent::is_countable].
-    pub fn len(&self, kind: OffsetKind) -> u32 {
+    pub fn len(&self, kind: OffsetKind) -> ClockType {
         match self {
             ItemContent::Deleted(deleted) => *deleted,
-            ItemContent::String(str) => str.len(kind) as u32,
-            ItemContent::Any(v) => v.len() as u32,
-            ItemContent::JSON(v) => v.len() as u32,
+            ItemContent::String(str) => str.len(kind) as ClockType,
+            ItemContent::Any(v) => v.len() as ClockType,
+            ItemContent::JSON(v) => v.len() as ClockType,
             _ => 1,
         }
     }
@@ -1879,7 +1880,7 @@ impl ItemContent {
 
     /// Encodes a slice of a current [ItemContent] within an index bounds of (start..=end) - both
     /// sides inclusive.
-    pub fn encode_slice<E: Encoder>(&self, encoder: &mut E, start: u32, end: u32) {
+    pub fn encode_slice<E: Encoder>(&self, encoder: &mut E, start: ClockType, end: ClockType) {
         match self {
             ItemContent::Deleted(_) => encoder.write_len(end - start + 1),
             ItemContent::Binary(buf) => encoder.write_buf(buf),
@@ -1931,7 +1932,7 @@ impl ItemContent {
             ItemContent::String(s) => encoder.write_string(s.as_str()),
             ItemContent::Embed(s) => encoder.write_json(s.as_ref()),
             ItemContent::JSON(s) => {
-                encoder.write_len(s.len() as u32);
+                encoder.write_len(s.len() as ClockType);
                 for json in s.iter() {
                     encoder.write_string(json.as_str())
                 }
@@ -1944,7 +1945,7 @@ impl ItemContent {
                 inner.type_ref.encode(encoder);
             }
             ItemContent::Any(any) => {
-                encoder.write_len(any.len() as u32);
+                encoder.write_len(any.len() as ClockType);
                 for a in any.iter() {
                     encoder.write_any(a);
                 }
@@ -2030,8 +2031,8 @@ impl ItemContent {
                 Some(ItemContent::String(right))
             }
             ItemContent::Deleted(len) => {
-                let right = ItemContent::Deleted(*len - offset as u32);
-                *len = offset as u32;
+                let right = ItemContent::Deleted(*len - offset as ClockType);
+                *len = offset as ClockType;
                 Some(right)
             }
             ItemContent::JSON(value) => {
