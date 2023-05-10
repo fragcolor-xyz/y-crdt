@@ -14,14 +14,14 @@ use std::ops::Range;
 // Note: use native Rust [Range](https://doc.rust-lang.org/std/ops/struct.Range.html)
 // as it's left-inclusive/right-exclusive and defines the exact capabilities we care about here.
 
-impl Encode for Range<u64> {
+impl Encode for Range<ClockType> {
     fn encode<E: Encoder>(&self, encoder: &mut E) {
         encoder.write_ds_clock(self.start);
         encoder.write_ds_len(self.end - self.start)
     }
 }
 
-impl Decode for Range<u64> {
+impl Decode for Range<ClockType> {
     fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, Error> {
         let clock = decoder.read_ds_clock()?;
         let len = decoder.read_ds_len()?;
@@ -230,7 +230,7 @@ impl IdRange {
     }
 
     #[inline]
-    fn try_join(a: &mut Range<u64>, b: &Range<u64>) -> bool {
+    fn try_join(a: &mut Range<ClockType>, b: &Range<ClockType>) -> bool {
         if Self::disjoint(a, b) {
             false
         } else {
@@ -241,7 +241,7 @@ impl IdRange {
     }
 
     #[inline]
-    fn disjoint(a: &Range<u64>, b: &Range<u64>) -> bool {
+    fn disjoint(a: &Range<ClockType>, b: &Range<ClockType>) -> bool {
         a.start > b.end || b.start > a.end
     }
 }
@@ -285,12 +285,12 @@ impl Decode for IdRange {
 }
 
 pub struct IdRangeIter<'a> {
-    inner: Option<std::slice::Iter<'a, Range<u64>>>,
-    range: Option<&'a Range<u64>>,
+    inner: Option<std::slice::Iter<'a, Range<ClockType>>>,
+    range: Option<&'a Range<ClockType>>,
 }
 
 impl<'a> Iterator for IdRangeIter<'a> {
-    type Item = &'a Range<u64>;
+    type Item = &'a Range<ClockType>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(inner) = &mut self.inner {
