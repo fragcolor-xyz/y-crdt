@@ -1,4 +1,4 @@
-use crate::block::ClientID;
+use crate::block::{ClientID, ClockType};
 use crate::transaction::ReadTxn;
 use crate::updates::decoder::{Decode, Decoder, DecoderV1};
 use crate::updates::encoder::{Encode, Encoder, EncoderV1};
@@ -490,7 +490,7 @@ impl TestPeer {
 }
 
 pub(crate) trait RngExt: RngCore {
-    fn between(&mut self, x: u32, y: u32) -> u32 {
+    fn between(&mut self, x: ClockType, y: ClockType) -> crate::block::ClockType {
         let a = x.min(y);
         let b = x.max(y);
         if a == b {
