@@ -1,3 +1,4 @@
+use core::panic;
 use std::convert::TryFrom;
 use std::hash::Hasher;
 
@@ -21,7 +22,7 @@ impl Hasher for ClientHasher {
         // we only expect a single value to be written
         debug_assert!(self.prefix == 0);
         self.prefix = if bytes.len() == 4 {
-            u32::from_ne_bytes(<[u8; 4]>::try_from(bytes).unwrap()) as u64
+            panic!("ClientHasher: 32 bit client-ids are not supported!");
         } else {
             u64::from_ne_bytes(<[u8; 8]>::try_from(bytes).unwrap())
         };
