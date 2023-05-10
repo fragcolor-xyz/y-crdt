@@ -415,9 +415,9 @@ impl Decode for IdSet {
         let mut i = 0;
         while i < client_len {
             decoder.reset_ds_cur_val();
-            let client: u32 = decoder.read_var()?;
+            let client = decoder.read_var()?;
             let range = IdRange::decode(decoder)?;
-            set.0.insert(client as ClientID, range);
+            set.0.insert(client, range);
             i += 1;
         }
         Ok(set)

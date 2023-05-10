@@ -27,7 +27,7 @@ pub trait Decode: Sized {
 /// 1. 1st version (implemented in Yrs) uses simple optimization techniques like var int encoding.
 /// 2. 2nd version optimizes bigger batches of blocks by using run-length encoding.
 ///
-/// Both of these define a common set of operations defined in this trait.  
+/// Both of these define a common set of operations defined in this trait.
 pub trait Decoder: Read {
     /// Reset the value of current delete set state.
     fn reset_ds_cur_val(&mut self);
@@ -85,9 +85,9 @@ impl<'a> DecoderV1<'a> {
     }
 
     fn read_id(&mut self) -> Result<ID, Error> {
-        let client: u32 = self.read_var()?;
+        let client = self.read_var()?;
         let clock = self.read_var()?;
-        Ok(ID::new(client as ClientID, clock))
+        Ok(ID::new(client, clock))
     }
 }
 
@@ -143,8 +143,8 @@ impl<'a> Decoder for DecoderV1<'a> {
 
     #[inline]
     fn read_client(&mut self) -> Result<ClientID, Error> {
-        let client: u32 = self.cursor.read_var()?;
-        Ok(client as ClientID)
+        let client = self.cursor.read_var()?;
+        Ok(client)
     }
 
     #[inline]
@@ -311,20 +311,20 @@ impl<'a> Decoder for DecoderV2<'a> {
 
     fn read_left_id(&mut self) -> Result<ID, Error> {
         Ok(ID::new(
-            self.client_decoder.read_u64()? as ClientID,
+            self.client_decoder.read_u64()?,
             self.left_clock_decoder.read_u32()?,
         ))
     }
 
     fn read_right_id(&mut self) -> Result<ID, Error> {
         Ok(ID::new(
-            self.client_decoder.read_u64()? as ClientID,
+            self.client_decoder.read_u64()?,
             self.right_clock_decoder.read_u32()?,
         ))
     }
 
     fn read_client(&mut self) -> Result<ClientID, Error> {
-        Ok(self.client_decoder.read_u64()? as ClientID)
+        Ok(self.client_decoder.read_u64()?)
     }
 
     fn read_info(&mut self) -> Result<u8, Error> {
