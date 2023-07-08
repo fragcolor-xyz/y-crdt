@@ -1,3 +1,4 @@
+use crate::block::ClockType;
 use crate::tests::edit_traces::load_testing_data;
 use crate::{Doc, GetString, OffsetKind, Options, Text, Transact};
 use std::time::Instant;
@@ -49,12 +50,12 @@ fn test_editing_trace(fpath: &str) {
             //let total = txt.len(&txn);
             if delete != 0 {
                 //println!("{at}/{total}: delete {delete_count} elements");
-                txt.remove_range(&mut txn, at as u32, delete as u32);
+                txt.remove_range(&mut txn, at as ClockType, delete as ClockType);
             }
             if !content.is_empty() {
                 //let len = content.len();
                 //println!("{at}/{total}: insert {len} elements - \"{content}\"");
-                txt.insert(&mut txn, at as u32, &content);
+                txt.insert(&mut txn, at as ClockType, &content);
             }
         }
     }

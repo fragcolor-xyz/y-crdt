@@ -1,5 +1,4 @@
 use crate::block::{ClientID, ClockType};
-use crate::types::TypeRefs;
 use crate::*;
 use lib0::decoding::Read;
 use lib0::error::Error;
@@ -195,7 +194,7 @@ impl<'a> Decoder for DecoderV1<'a> {
 /// Version 2 of lib0 decoder.
 pub struct DecoderV2<'a> {
     cursor: Cursor<'a>,
-    keys: Vec<Rc<str>>,
+    keys: Vec<Arc<str>>,
     ds_curr_val: ClockType,
     key_clock_decoder: IntDiffOptRleDecoder<'a>,
     client_decoder: UInt128OptRleDecoder<'a>,
@@ -352,7 +351,7 @@ impl<'a> Decoder for DecoderV2<'a> {
         Any::decode(&mut self.cursor)
     }
 
-    fn read_key(&mut self) -> Result<Rc<str>, Error> {
+    fn read_key(&mut self) -> Result<Arc<str>, Error> {
         let key_clock = self.key_clock_decoder.read_u64()?;
         if let Some(key) = self.keys.get(key_clock as usize) {
             Ok(key.clone())

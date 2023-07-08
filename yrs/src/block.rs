@@ -10,7 +10,6 @@ use crate::utils::OptionExt;
 use crate::*;
 use lib0::any::Any;
 use lib0::error::Error;
-use primitive_types::U256;
 use smallstr::SmallString;
 use std::collections::HashSet;
 use std::convert::TryFrom;
