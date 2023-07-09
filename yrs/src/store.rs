@@ -18,6 +18,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::{Arc, Weak};
+use crate::StringType;
 
 /// Store is a core element of a document. It contains all of the information, like block store
 /// map of root types, pending updates waiting to be applied once a missing update information
@@ -28,7 +29,7 @@ pub struct Store {
     /// Root types (a.k.a. top-level types). These types are defined by users at the document level,
     /// they have their own unique names and represent core shared types that expose operations
     /// which can be called concurrently by remote peers in a conflict-free manner.
-    pub(crate) types: HashMap<Arc<str>, Box<Branch>>,
+    pub(crate) types: HashMap<StringType, Box<Branch>>,
 
     /// A block store of a current document. It represent all blocks (inserted or tombstoned
     /// operations) integrated - and therefore visible - into a current document.
@@ -82,14 +83,14 @@ impl Store {
 
     /// Returns a branch reference to a complex type identified by its pointer. Returns `None` if
     /// no such type could be found or was ever defined.
-    pub(crate) fn get_type<K: Into<Arc<str>>>(&self, key: K) -> Option<BranchPtr> {
+    pub(crate) fn get_type<K: Into<StringType>>(&self, key: K) -> Option<BranchPtr> {
         let ptr = BranchPtr::from(self.types.get(&key.into())?);
         Some(ptr)
     }
 
     /// Returns a branch reference to a complex type identified by its pointer. Returns `None` if
     /// no such type could be found or was ever defined.
-    pub(crate) fn get_or_create_type<K: Into<Arc<str>>>(
+    pub(crate) fn get_or_create_type<K: Into<StringType>>(
         &mut self,
         key: K,
         type_ref: TypeRef,
@@ -110,7 +111,7 @@ impl Store {
         }
     }
 
-    pub(crate) fn get_type_key(&self, ptr: BranchPtr) -> Option<&Arc<str>> {
+    pub(crate) fn get_type_key(&self, ptr: BranchPtr) -> Option<&StringType> {
         let branch = ptr.deref() as *const Branch;
         for (k, v) in self.types.iter() {
             let target = v.as_ref() as *const Branch;

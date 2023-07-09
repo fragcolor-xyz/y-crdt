@@ -11,7 +11,7 @@ use std::cell::UnsafeCell;
 use std::collections::{HashMap, HashSet};
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
+use crate::StringType;
 
 /// Collection used to store key-value entries in an unordered manner. Keys are always represented
 /// as UTF-8 strings. Values can be any value type supported by Yrs: JSON-like primitives as well as
@@ -158,7 +158,7 @@ pub trait Map: AsRef<Branch> {
     /// Inserts a new `value` under given `key` into current map. Returns an integrated value.
     fn insert<K, V>(&self, txn: &mut TransactionMut, key: K, value: V) -> V::Return
     where
-        K: Into<Arc<str>>,
+        K: Into<StringType>,
         V: Prelim,
     {
         let key = key.into();
@@ -377,11 +377,11 @@ impl<T: Prelim> Into<EmbedPrelim<MapPrelim<T>>> for MapPrelim<T> {
 pub struct MapEvent {
     pub(crate) current_target: BranchPtr,
     target: MapRef,
-    keys: UnsafeCell<Result<HashMap<Arc<str>, EntryChange>, HashSet<Option<Arc<str>>>>>,
+    keys: UnsafeCell<Result<HashMap<StringType, EntryChange>, HashSet<Option<StringType>>>>,
 }
 
 impl MapEvent {
-    pub(crate) fn new(branch_ref: BranchPtr, key_changes: HashSet<Option<Arc<str>>>) -> Self {
+    pub(crate) fn new(branch_ref: BranchPtr, key_changes: HashSet<Option<StringType>>) -> Self {
         let current_target = branch_ref.clone();
         MapEvent {
             target: MapRef::from(branch_ref),
@@ -402,7 +402,7 @@ impl MapEvent {
 
     /// Returns a summary of key-value changes made over corresponding [Map] collection within
     /// bounds of current transaction.
-    pub fn keys(&self, txn: &TransactionMut) -> &HashMap<Arc<str>, EntryChange> {
+    pub fn keys(&self, txn: &TransactionMut) -> &HashMap<StringType, EntryChange> {
         let keys = unsafe { self.keys.get().as_mut().unwrap() };
 
         match keys {

@@ -29,6 +29,7 @@ use std::fmt::Formatter;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
+use crate::StringType;
 use std::sync::Arc;
 
 /// Type ref identifier for an [ArrayRef] type.
@@ -65,7 +66,7 @@ pub enum TypeRef {
     Array = TYPE_REFS_ARRAY,
     Map = TYPE_REFS_MAP,
     Text = TYPE_REFS_TEXT,
-    XmlElement(Arc<str>) = TYPE_REFS_XML_ELEMENT,
+    XmlElement(StringType) = TYPE_REFS_XML_ELEMENT,
     XmlFragment = TYPE_REFS_XML_FRAGMENT,
     XmlHook = TYPE_REFS_XML_HOOK,
     XmlText = TYPE_REFS_XML_TEXT,
@@ -176,7 +177,7 @@ impl BranchPtr {
     pub(crate) fn trigger(
         &self,
         txn: &TransactionMut,
-        subs: HashSet<Option<Arc<str>>>,
+        subs: HashSet<Option<StringType>>,
     ) -> Option<Event> {
         if let Some(observers) = self.observers.as_ref() {
             Some(observers.publish(*self, txn, subs))
@@ -328,7 +329,7 @@ pub struct Branch {
     /// - [Map]: all of the map elements are based on this field. The value of each entry points
     ///   to the last modified value.
     /// - [XmlElement]: this field stores attributes assigned to a given XML node.
-    pub(crate) map: HashMap<Arc<str>, BlockPtr>,
+    pub(crate) map: HashMap<StringType, BlockPtr>,
 
     /// Unique identifier of a current branch node. It can be contain either a named string - which
     /// means, this branch is a root-level complex data structure - or a block identifier. In latter
@@ -966,7 +967,7 @@ impl std::fmt::Display for Branch {
 
 #[derive(Debug)]
 pub(crate) struct Entries<'a, B, T> {
-    iter: std::collections::hash_map::Iter<'a, Arc<str>, BlockPtr>,
+    iter: std::collections::hash_map::Iter<'a, StringType, BlockPtr>,
     txn: B,
     _marker: PhantomData<T>,
 }
@@ -976,7 +977,7 @@ where
     B: Borrow<T>,
     T: ReadTxn,
 {
-    pub fn new(source: &'a HashMap<Arc<str>, BlockPtr>, txn: B) -> Self {
+    pub fn new(source: &'a HashMap<StringType, BlockPtr>, txn: B) -> Self {
         Entries {
             iter: source.iter(),
             txn,
@@ -989,7 +990,7 @@ impl<'a, T: ReadTxn> Entries<'a, T, T>
 where
     T: Borrow<T> + ReadTxn,
 {
-    pub fn from(source: &'a HashMap<Arc<str>, BlockPtr>, txn: T) -> Self {
+    pub fn from(source: &'a HashMap<StringType, BlockPtr>, txn: T) -> Self {
         Entries::new(source, txn)
     }
 }
@@ -998,7 +999,7 @@ impl<'a, T: ReadTxn> Entries<'a, &'a T, T>
 where
     T: Borrow<T> + ReadTxn,
 {
-    pub fn from_ref(source: &'a HashMap<Arc<str>, BlockPtr>, txn: &'a T) -> Self {
+    pub fn from_ref(source: &'a HashMap<StringType, BlockPtr>, txn: &'a T) -> Self {
         Entries::new(source, txn)
     }
 }
@@ -1064,7 +1065,7 @@ pub(crate) enum TypePtr {
     Branch(BranchPtr),
 
     /// Temporary state representing top-level type.
-    Named(Arc<str>),
+    Named(StringType),
 
     /// Temporary state representing nested-level type.
     ID(ID),
@@ -1128,7 +1129,7 @@ impl Observers {
         &self,
         branch_ref: BranchPtr,
         txn: &TransactionMut,
-        keys: HashSet<Option<Arc<str>>>,
+        keys: HashSet<Option<StringType>>,
     ) -> Event {
         match self {
             Observers::Text(eh) => {
@@ -1180,7 +1181,7 @@ pub type Path = VecDeque<PathSegment>;
 #[derive(Debug, Clone, PartialEq)]
 pub enum PathSegment {
     /// Key segments are used to inform how to access child shared collections within a [Map] types.
-    Key(Arc<str>),
+    Key(StringType),
 
     /// Index segments are used to inform how to access child shared collections within an [Array]
     /// or [XmlElement] types.
@@ -1251,13 +1252,13 @@ pub enum Delta {
 }
 
 /// An alias for map of attributes used as formatting parameters by [Text] and [XmlText] types.
-pub type Attrs = HashMap<Arc<str>, Any>;
+pub type Attrs = HashMap<StringType, Any>;
 
 pub(crate) fn event_keys(
     txn: &TransactionMut,
     target: BranchPtr,
-    keys_changed: &HashSet<Option<Arc<str>>>,
-) -> HashMap<Arc<str>, EntryChange> {
+    keys_changed: &HashSet<Option<StringType>>,
+) -> HashMap<StringType, EntryChange> {
     let mut keys = HashMap::new();
     for opt in keys_changed.iter() {
         if let Some(key) = opt {

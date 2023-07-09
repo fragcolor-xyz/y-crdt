@@ -501,7 +501,9 @@ pub use crate::undo::UndoManager;
 pub use crate::update::Update;
 use rand::RngCore;
 
-pub type Uuid = std::sync::Arc<str>;
+pub type StringType = std::rc::Rc<str>;
+
+pub type Uuid = std::rc::Rc<str>;
 
 /// Generate random v4 UUID.
 /// (See: https://www.rfc-editor.org/rfc/rfc4122#section-4.4)

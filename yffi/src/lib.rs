@@ -2541,7 +2541,7 @@ impl Prelim for YInput {
                 } else if self.tag == Y_ARRAY {
                     TypeRef::Array
                 } else if self.tag == Y_XML_ELEM {
-                    let name: Arc<str> = CStr::from_ptr(self.value.str).to_str().unwrap().into();
+                    let name: Rc<str> = CStr::from_ptr(self.value.str).to_str().unwrap().into();
                     TypeRef::XmlElement(name)
                 } else if self.tag == Y_XML_TEXT {
                     TypeRef::XmlText
@@ -4566,7 +4566,7 @@ pub struct YEventChange {
     pub tag: c_char,
 
     /// Number of element affected by current type of a change. It can refer to a number of
-    /// inserted `values`, number of deleted element or a number of retained (unchanged) values.  
+    /// inserted `values`, number of deleted element or a number of retained (unchanged) values.
     pub len: u32,
 
     /// Used in case when current change is of `Y_EVENT_CHANGE_ADD` type. Contains a list (of
@@ -4650,7 +4650,7 @@ pub struct YDelta {
     pub tag: c_char,
 
     /// Number of element affected by current type of a change. It can refer to a number of
-    /// inserted `values`, number of deleted element or a number of retained (unchanged) values.  
+    /// inserted `values`, number of deleted element or a number of retained (unchanged) values.
     pub len: u32,
 
     /// Used in case when current change is of `Y_EVENT_CHANGE_ADD` type. Contains a list (of
@@ -4749,7 +4749,7 @@ pub struct YDeltaAttr {
 }
 
 impl YDeltaAttr {
-    fn new(k: &Arc<str>, v: &Any) -> Self {
+    fn new(k: &Rc<str>, v: &Any) -> Self {
         let key = CString::new(k.as_ref()).unwrap().into_raw() as *const _;
         let value = YOutput::from(v.clone());
         YDeltaAttr { key, value }
@@ -4940,7 +4940,7 @@ pub unsafe extern "C" fn ysticky_index_from_index(
 }
 
 /// Serializes `YStickyIndex` into binary representation. `len` parameter is updated with byte
-/// length of the generated binary. Returned binary can be free'd using `ybinary_destroy`.  
+/// length of the generated binary. Returned binary can be free'd using `ybinary_destroy`.
 #[no_mangle]
 pub unsafe extern "C" fn ysticky_index_encode(
     pos: *const YStickyIndex,

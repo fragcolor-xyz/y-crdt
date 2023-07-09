@@ -16,7 +16,7 @@ use std::cmp::Ordering;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
 use std::hash::BuildHasherDefault;
-use std::sync::Arc;
+use crate::StringType;
 
 #[derive(Debug, Default, PartialEq)]
 pub(crate) struct UpdateBlocks {
@@ -430,7 +430,7 @@ impl Update {
                 } else {
                     TypePtr::Unknown
                 };
-                let parent_sub: Option<Arc<str>> =
+                let parent_sub: Option<StringType> =
                     if cant_copy_parent_info && (info & HAS_PARENT_SUB != 0) {
                         Some(decoder.read_string()?.into())
                     } else {

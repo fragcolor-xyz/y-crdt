@@ -18,7 +18,7 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt::Write;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
+use crate::StringType;
 
 /// Trait shared by preliminary types that can be used as XML nodes: [XmlElementPrelim],
 /// [XmlFragmentPrelim] and [XmlTextPrelim].
@@ -141,7 +141,7 @@ impl Into<MapRef> for XmlElementRef {
 
 impl XmlElementRef {
     /// A tag name of a current top-level XML node, eg. node `<p></p>` has "p" as it's tag name.
-    pub fn try_tag(&self) -> Option<&Arc<str>> {
+    pub fn try_tag(&self) -> Option<&StringType> {
         if let TypeRef::XmlElement(tag) = &self.0.type_ref {
             Some(tag)
         } else {
@@ -151,7 +151,7 @@ impl XmlElementRef {
     }
 
     /// A tag name of a current top-level XML node, eg. node `<p></p>` has "p" as it's tag name.
-    pub fn tag(&self) -> &Arc<str> {
+    pub fn tag(&self) -> &StringType {
         self.try_tag().expect("XmlElement tag was not defined")
     }
 }
@@ -236,7 +236,7 @@ impl TryFrom<BlockPtr> for XmlElementRef {
 /// A preliminary type that will be materialized into an [XmlElementRef] once it will be integrated
 /// into Yrs document.
 #[derive(Debug, Clone)]
-pub struct XmlElementPrelim<I, T>(Arc<str>, I)
+pub struct XmlElementPrelim<I, T>(StringType, I)
 where
     I: IntoIterator<Item = T>,
     T: XmlPrelim;
@@ -246,13 +246,13 @@ where
     I: IntoIterator<Item = T>,
     T: XmlPrelim,
 {
-    pub fn new<S: Into<Arc<str>>>(tag: S, iter: I) -> Self {
+    pub fn new<S: Into<StringType>>(tag: S, iter: I) -> Self {
         XmlElementPrelim(tag.into(), iter)
     }
 }
 
 impl XmlElementPrelim<Option<XmlTextPrelim<String>>, XmlTextPrelim<String>> {
-    pub fn empty<S: Into<Arc<str>>>(tag: S) -> Self {
+    pub fn empty<S: Into<StringType>>(tag: S) -> Self {
         XmlElementPrelim(tag.into(), None)
     }
 }
@@ -703,7 +703,7 @@ pub trait Xml: AsRef<Branch> {
     /// Inserts an attribute entry into current XML element.
     fn insert_attribute<K, V>(&self, txn: &mut TransactionMut, attr_name: K, attr_value: V)
     where
-        K: Into<Arc<str>>,
+        K: Into<StringType>,
         V: Into<String>,
     {
         let key = attr_name.into();
@@ -1008,11 +1008,11 @@ pub struct XmlTextEvent {
     pub(crate) current_target: BranchPtr,
     target: XmlTextRef,
     delta: UnsafeCell<Option<Vec<Delta>>>,
-    keys: UnsafeCell<Result<HashMap<Arc<str>, EntryChange>, HashSet<Option<Arc<str>>>>>,
+    keys: UnsafeCell<Result<HashMap<StringType, EntryChange>, HashSet<Option<StringType>>>>,
 }
 
 impl XmlTextEvent {
-    pub(crate) fn new(branch_ref: BranchPtr, key_changes: HashSet<Option<Arc<str>>>) -> Self {
+    pub(crate) fn new(branch_ref: BranchPtr, key_changes: HashSet<Option<StringType>>) -> Self {
         let current_target = branch_ref.clone();
         let target = XmlTextRef::from(branch_ref);
         XmlTextEvent {
@@ -1044,7 +1044,7 @@ impl XmlTextEvent {
 
     /// Returns a summary of attribute changes made over corresponding [XmlText] collection within
     /// bounds of current transaction.
-    pub fn keys(&self, txn: &TransactionMut) -> &HashMap<Arc<str>, EntryChange> {
+    pub fn keys(&self, txn: &TransactionMut) -> &HashMap<StringType, EntryChange> {
         let keys = unsafe { self.keys.get().as_mut().unwrap() };
 
         match keys {
@@ -1118,12 +1118,12 @@ pub struct XmlEvent {
     pub(crate) current_target: BranchPtr,
     target: XmlNode,
     change_set: UnsafeCell<Option<Box<ChangeSet<Change>>>>,
-    keys: UnsafeCell<Result<HashMap<Arc<str>, EntryChange>, HashSet<Option<Arc<str>>>>>,
+    keys: UnsafeCell<Result<HashMap<StringType, EntryChange>, HashSet<Option<StringType>>>>,
     children_changed: bool,
 }
 
 impl XmlEvent {
-    pub(crate) fn new(branch_ref: BranchPtr, key_changes: HashSet<Option<Arc<str>>>) -> Self {
+    pub(crate) fn new(branch_ref: BranchPtr, key_changes: HashSet<Option<StringType>>) -> Self {
         let current_target = branch_ref.clone();
         let children_changed = key_changes.iter().any(Option::is_none);
         XmlEvent {
@@ -1170,7 +1170,7 @@ impl XmlEvent {
 
     /// Returns a summary of attribute changes made over corresponding [XmlElement] collection
     /// within bounds of current transaction.
-    pub fn keys(&self, txn: &TransactionMut) -> &HashMap<Arc<str>, EntryChange> {
+    pub fn keys(&self, txn: &TransactionMut) -> &HashMap<StringType, EntryChange> {
         let keys = unsafe { self.keys.get().as_mut().unwrap() };
 
         match keys {

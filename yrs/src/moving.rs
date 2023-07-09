@@ -8,7 +8,7 @@ use crate::{ReadTxn, WriteTxn, ID};
 use lib0::error::Error;
 use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
+use crate::StringType;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Move {
@@ -658,7 +658,7 @@ pub enum IndexScope {
     Nested(ID),
     /// If a containing collection is a root-level y-type, which is empty, this case allows us to
     /// identify that nested type.
-    Root(Arc<str>),
+    Root(StringType),
 }
 
 impl Encode for IndexScope {

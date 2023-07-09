@@ -17,7 +17,7 @@ use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
 use std::panic;
 use std::ptr::NonNull;
-use std::sync::Arc;
+use crate::StringType;
 
 /// Bit flag used to identify [Block::GC].
 pub const BLOCK_GC_REF_NUMBER: u8 = 0;
@@ -1290,7 +1290,7 @@ pub struct Item {
 
     /// Used only when current item is used by map-like types. In such case this item works as a
     /// key-value entry of a map, and this field contains a key used by map.
-    pub(crate) parent_sub: Option<Arc<str>>,
+    pub(crate) parent_sub: Option<StringType>,
 
     /// This property is reused by the moved prop. In this case this property refers to an Item.
     pub(crate) moved: Option<BlockPtr>,
@@ -1381,7 +1381,7 @@ impl Item {
         right: Option<BlockPtr>,
         right_origin: Option<ID>,
         parent: TypePtr,
-        parent_sub: Option<Arc<str>>,
+        parent_sub: Option<StringType>,
         content: ItemContent,
     ) -> Box<Block> {
         let info = ItemFlags::new(if content.is_countable() {
@@ -1693,7 +1693,7 @@ pub enum ItemContent {
 
     /// Formatting attribute entry. Format attributes are not considered countable and don't
     /// contribute to an overall length of a collection they are applied to.
-    Format(Arc<str>, Box<Any>),
+    Format(StringType, Box<Any>),
 
     /// A chunk of text, usually applied by collaborative text insertion.
     String(SplittableString),
