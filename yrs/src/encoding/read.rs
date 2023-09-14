@@ -4,7 +4,7 @@ use crate::encoding::varint::{Signed, SignedVarInt, VarInt};
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("decoded variable integer size was outside of expected bounds of {0} bits")]
-    VarIntSizeExceeded(u8),
+    VarIntSizeExceeded(u16),
 
     #[error("while trying to read more data (expected: {0} bytes), an unexpected end of buffer was reached")]
     EndOfBuffer(usize),
