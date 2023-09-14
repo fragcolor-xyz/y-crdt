@@ -2,18 +2,16 @@ use crate::block::{Block, BlockPtr, ClientID, ItemContent, Prelim};
 use crate::event::{SubdocsEvent, TransactionCleanupEvent, UpdateEvent};
 use crate::store::{Store, StoreRef};
 use crate::transaction::{Origin, Transaction, TransactionMut};
-use crate::types::{Branch, BranchPtr, ToJson, TypeRef};
+use crate::types::{Branch, BranchPtr, ToJson, TypeRef, Value};
 use crate::updates::decoder::{Decode, Decoder};
 use crate::updates::encoder::{Encode, Encoder};
 use crate::utils::OptionExt;
-use crate::UndoManager;
+use crate::{Any};
 use crate::{
     uuid_v4, ArrayRef, MapRef, ReadTxn, SubscriptionId, TextRef, Uuid, WriteTxn, XmlElementRef,
     XmlFragmentRef, XmlTextRef,
 };
 use atomic_refcell::{AtomicRef, AtomicRefMut, BorrowError, BorrowMutError};
-use lib0::any::Any;
-use lib0::error::Error;
 use rand::Rng;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -21,6 +19,7 @@ use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use thiserror::Error;
+use crate::encoding::read::Error;
 
 /// A Yrs document type. Documents are most important units of collaborative resources management.
 /// All shared collections live within a scope of their corresponding documents. All updates are
@@ -61,6 +60,17 @@ pub struct Doc {
 
 unsafe impl Send for Doc {}
 unsafe impl Sync for Doc {}
+
+impl TryFrom<Value> for Doc {
+    type Error = Value;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::YDoc(value) => Ok(value),
+            other => Err(other),
+        }
+    }
+}
 
 impl Doc {
     /// Creates a new document with a randomized client identifier.
@@ -465,7 +475,7 @@ impl Doc {
         None
     }
 
-    pub(crate) fn ptr_eq(a: &Doc, b: &Doc) -> bool {
+    pub fn ptr_eq(a: &Doc, b: &Doc) -> bool {
         Arc::ptr_eq(&a.store.0, &b.store.0)
     }
 
@@ -529,7 +539,7 @@ impl ToJson for Doc {
         for (key, value) in txn.root_refs() {
             m.insert(key.to_string(), value.to_json(txn));
         }
-        Any::Map(Box::new(m))
+        Any::from(m)
     }
 }
 
@@ -609,7 +619,7 @@ impl Options {
         m.insert("encoding".to_owned(), Any::BigInt(encoding));
         m.insert("autoLoad".to_owned(), self.auto_load.into());
         m.insert("shouldLoad".to_owned(), self.should_load.into());
-        Any::Map(Box::new(m))
+        Any::from(m)
     }
 }
 
@@ -697,7 +707,7 @@ pub trait Transact {
     /// dropping or committing it may subscription callbacks.
     ///
     /// An `origin` may be used to identify context of operations made (example updates performed
-    /// locally vs. incoming from remote replicas) and it's used i.e. by [UndoManager].
+    /// locally vs. incoming from remote replicas) and it's used i.e. by [`UndoManager`][crate::undo::UndoManager].
     ///
     /// # Errors
     ///
@@ -713,7 +723,7 @@ pub trait Transact {
     /// dropping or committing it may subscription callbacks.
     ///
     /// An `origin` may be used to identify context of operations made (example updates performed
-    /// locally vs. incoming from remote replicas) and it's used i.e. by [UndoManager].
+    /// locally vs. incoming from remote replicas) and it's used i.e. by [`UndoManager`][crate::undo::UndoManager].
     ///
     /// # Errors
     ///
@@ -892,12 +902,7 @@ mod test {
     use crate::update::Update;
     use crate::updates::decoder::Decode;
     use crate::updates::encoder::{Encode, Encoder, EncoderV1};
-    use crate::{
-        Array, ArrayPrelim, DeleteSet, Doc, GetString, Map, Options, StateVector, SubscriptionId,
-        Text, Transact, Uuid, XmlElementPrelim, XmlFragment,
-    };
-    use lib0::any;
-    use lib0::any::Any;
+    use crate::{Any, any, Array, ArrayPrelim, ArrayRef, DeleteSet, Doc, GetString, Map, MapRef, Options, StateVector, SubscriptionId, Text, TextRef, Transact, Uuid, XmlElementPrelim, XmlFragment, XmlFragmentRef, XmlTextRef};
     use std::cell::{Cell, RefCell, RefMut};
     use std::collections::BTreeSet;
     use std::rc::Rc;
@@ -1607,11 +1612,11 @@ mod test {
         let txn = doc.transact();
         for (key, value) in txn.root_refs() {
             match key {
-                "text" => assert!(value.to_ytext().is_some()),
-                "array" => assert!(value.to_yarray().is_some()),
-                "map" => assert!(value.to_ymap().is_some()),
-                "xml_elem" => assert!(value.to_yxml_fragment().is_some()),
-                "xml_text" => assert!(value.to_yxml_text().is_some()),
+                "text" => assert!(value.cast::<TextRef>().is_ok()),
+                "array" => assert!(value.cast::<ArrayRef>().is_ok()),
+                "map" => assert!(value.cast::<MapRef>().is_ok()),
+                "xml_elem" => assert!(value.cast::<XmlFragmentRef>().is_ok()),
+                "xml_text" => assert!(value.cast::<XmlTextRef>().is_ok()),
                 other => panic!("unrecognized root type: '{}'", other),
             }
         }
@@ -1642,7 +1647,7 @@ mod test {
         {
             let root = d3.get_or_insert_array("array");
             let mut t3 = d3.transact_mut();
-            let a3 = root.get(&t3, 0).unwrap().to_yarray().unwrap();
+            let a3 = root.get(&t3, 0).unwrap().cast::<ArrayRef>().unwrap();
             a3.push_back(&mut t3, "B");
             // D1 got update which already removed a3, but this must not cause panic
             d1.transact_mut()
@@ -1692,7 +1697,7 @@ mod test {
 
         {
             let mut txn = doc.transact_mut();
-            let doc_a_ref = subdocs.get(&txn, "a").unwrap().to_ydoc().unwrap();
+            let doc_a_ref = subdocs.get(&txn, "a").unwrap().cast::<Doc>().unwrap();
             doc_a_ref.load(&mut txn);
         }
         let actual = event.take();
@@ -1700,7 +1705,7 @@ mod test {
 
         {
             let mut txn = doc.transact_mut();
-            let mut doc_a_ref = subdocs.get(&txn, "a").unwrap().to_ydoc().unwrap();
+            let mut doc_a_ref = subdocs.get(&txn, "a").unwrap().cast::<Doc>().unwrap();
             doc_a_ref.destroy(&mut txn);
         }
         let actual = event.take();
@@ -1711,7 +1716,7 @@ mod test {
 
         {
             let mut txn = doc.transact_mut();
-            let doc_a_ref = subdocs.get(&txn, "a").unwrap().to_ydoc().unwrap();
+            let doc_a_ref = subdocs.get(&txn, "a").unwrap().cast::<Doc>().unwrap();
             doc_a_ref.load(&mut txn);
         }
         let actual = event.take();
@@ -1729,7 +1734,7 @@ mod test {
 
         {
             let mut txn = doc.transact_mut();
-            let doc_b_ref = subdocs.get(&txn, "b").unwrap().to_ydoc().unwrap();
+            let doc_b_ref = subdocs.get(&txn, "b").unwrap().cast::<Doc>().unwrap();
             doc_b_ref.load(&mut txn);
         }
         let actual = event.take();
@@ -1784,7 +1789,7 @@ mod test {
         let subdocs = doc2.transact().get_map("mysubdocs").unwrap();
         {
             let mut txn = doc2.transact_mut();
-            let doc_ref = subdocs.get(&mut txn, "a").unwrap().to_ydoc().unwrap();
+            let doc_ref = subdocs.get(&mut txn, "a").unwrap().cast::<Doc>().unwrap();
             doc_ref.load(&mut txn);
         }
         let actual = event.take();
@@ -1837,7 +1842,11 @@ mod test {
 
         // destroy and check whether lastEvent adds it again to added (it shouldn't)
         doc_ref.destroy(&mut doc.transact_mut());
-        let doc_ref_2 = array.get(&doc.transact(), 0).unwrap().to_ydoc().unwrap();
+        let doc_ref_2 = array
+            .get(&doc.transact(), 0)
+            .unwrap()
+            .cast::<Doc>()
+            .unwrap();
         let uuid_2 = doc_ref_2.options().guid.clone();
         assert!(!Doc::ptr_eq(&doc_ref, &doc_ref_2));
 
@@ -1869,7 +1878,11 @@ mod test {
         doc2.transact_mut().apply_update(u.unwrap());
         let doc_ref_3 = {
             let array = doc2.get_or_insert_array("test");
-            array.get(&doc2.transact(), 0).unwrap().to_ydoc().unwrap()
+            array
+                .get(&doc2.transact(), 0)
+                .unwrap()
+                .cast::<Doc>()
+                .unwrap()
         };
         assert!(!doc_ref_3.options().should_load);
         assert!(!doc_ref_3.options().auto_load);
@@ -1921,7 +1934,11 @@ mod test {
         // destroy and check whether lastEvent adds it again to added (it shouldn't)
         subdoc_1.destroy(&mut doc.transact_mut());
 
-        let subdoc_2 = array.get(&doc.transact(), 0).unwrap().to_ydoc().unwrap();
+        let subdoc_2 = array
+            .get(&doc.transact(), 0)
+            .unwrap()
+            .cast::<Doc>()
+            .unwrap();
         let uuid_2 = subdoc_2.options().guid.clone();
         assert!(!Doc::ptr_eq(&subdoc_1, &subdoc_2));
 
@@ -1952,7 +1969,11 @@ mod test {
         doc2.transact_mut().apply_update(u.unwrap());
         let subdoc_3 = {
             let array = doc2.get_or_insert_array("test");
-            array.get(&doc2.transact(), 0).unwrap().to_ydoc().unwrap()
+            array
+                .get(&doc2.transact(), 0)
+                .unwrap()
+                .cast::<Doc>()
+                .unwrap()
         };
         assert!(subdoc_1.options().should_load);
         assert!(subdoc_1.options().auto_load);

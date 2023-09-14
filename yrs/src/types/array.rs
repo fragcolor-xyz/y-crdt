@@ -6,8 +6,7 @@ use crate::types::{
     event_change_set, Branch, BranchPtr, Change, ChangeSet, EventHandler, Observers, Path, ToJson,
     TypeRef, Value,
 };
-use crate::{Assoc, IndexedSequence, Observable, ReadTxn, ID};
-use lib0::any::Any;
+use crate::{Assoc, IndexedSequence, Observable, ReadTxn, ID, Any};
 use std::borrow::Borrow;
 use std::cell::UnsafeCell;
 use std::collections::HashSet;
@@ -38,8 +37,7 @@ use std::sync::Arc;
 /// # Example
 ///
 /// ```rust
-/// use lib0::any;
-/// use yrs::{Array, Doc, Map, MapPrelim, Transact};
+/// use yrs::{Array, Doc, Map, MapPrelim, Transact, Any, any};
 /// use yrs::types::ToJson;
 ///
 /// let doc = Doc::new();
@@ -136,6 +134,17 @@ impl TryFrom<BlockPtr> for ArrayRef {
             Ok(ArrayRef::from(branch))
         } else {
             Err(value)
+        }
+    }
+}
+
+impl TryFrom<Value> for ArrayRef {
+    type Error = Value;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::YArray(value) => Ok(value),
+            other => Err(other),
         }
     }
 }
@@ -518,16 +527,14 @@ mod test {
     use crate::test_utils::{exchange_updates, run_scenario, RngExt};
     use crate::types::map::MapPrelim;
     use crate::types::{Change, DeepObservable, Event, Path, PathSegment, ToJson, Value};
-    use crate::{
-        Array, ArrayPrelim, Assoc, Doc, Map, Observable, StateVector, Transact, Update, ID,
-    };
-    use lib0::any::Any;
+    use crate::{Array, ArrayPrelim, Assoc, Doc, Map, MapRef, Observable, StateVector, Transact, Update, ID, Any, any};
     use rand::prelude::StdRng;
     use rand::Rng;
     use std::cell::{Cell, RefCell};
     use std::collections::{HashMap, HashSet};
     use std::ops::Deref;
     use std::rc::Rc;
+    use std::sync::Arc;
 
     #[test]
     fn push_back() {
@@ -1033,7 +1040,6 @@ mod test {
     use crate::transaction::ReadTxn;
     use crate::updates::decoder::Decode;
     use crate::updates::encoder::{Encoder, EncoderV1};
-    use lib0::any;
     use std::sync::atomic::{AtomicI64, Ordering};
     use std::time::Duration;
 
@@ -1053,7 +1059,7 @@ mod test {
                 let new_pos_adjusted = rng.between(0, yarray.len(&txn) - 1);
                 let new_pos = new_pos_adjusted + if new_pos_adjusted > pos { len } else { 0 };
                 if let Any::Array(expected) = yarray.to_json(&txn) {
-                    let mut expected = Vec::from(expected);
+                    let mut expected = Vec::from(expected.as_ref());
                     let moved = expected.remove(pos as usize);
                     let insert_pos = if pos < new_pos {
                         new_pos - len
@@ -1065,7 +1071,7 @@ mod test {
                     yarray.move_to(&mut txn, pos, new_pos);
 
                     let actual = yarray.to_json(&txn);
-                    assert_eq!(actual, Any::Array(expected.into_boxed_slice()))
+                    assert_eq!(actual, Any::from(expected))
                 } else {
                     panic!("should not happen")
                 }
@@ -1082,7 +1088,7 @@ mod test {
                 .collect();
             let mut pos = rng.between(0, yarray.len(&txn)) as usize;
             if let Any::Array(expected) = yarray.to_json(&txn) {
-                let mut expected = Vec::from(expected);
+                let mut expected = Vec::from(expected.as_ref());
                 yarray.insert_range(&mut txn, pos as ClockType, content.clone());
 
                 for any in content {
@@ -1090,7 +1096,7 @@ mod test {
                     pos += 1;
                 }
                 let actual = yarray.to_json(&txn);
-                assert_eq!(actual, Any::Array(expected.into_boxed_slice()))
+                assert_eq!(actual, Any::from(expected))
             } else {
                 panic!("should not happen")
             }
@@ -1101,7 +1107,7 @@ mod test {
             let mut txn = doc.transact_mut();
             let pos = rng.between(0, yarray.len(&txn));
             let array2 = yarray.insert(&mut txn, pos, ArrayPrelim::from([1, 2, 3, 4]));
-            let expected: Box<[Any]> = (1..=4).map(|i| Any::Number(i as f64)).collect();
+            let expected: Arc<[Any]> = (1..=4).map(|i| Any::Number(i as f64)).collect();
             assert_eq!(array2.to_json(&txn), Any::Array(expected));
         }
 
@@ -1130,13 +1136,10 @@ mod test {
                     }
                 } else {
                     if let Any::Array(old_content) = yarray.to_json(&txn) {
-                        let mut old_content = Vec::from(old_content);
+                        let mut old_content = Vec::from(old_content.as_ref());
                         yarray.remove_range(&mut txn, pos, del_len);
                         old_content.drain(pos as usize..(pos + del_len) as usize);
-                        assert_eq!(
-                            yarray.to_json(&txn),
-                            Any::Array(old_content.into_boxed_slice())
-                        );
+                        assert_eq!(yarray.to_json(&txn), Any::from(old_content));
                     } else {
                         panic!("should not happen")
                     }
@@ -1197,7 +1200,7 @@ mod test {
 
         {
             let mut txn = doc.transact_mut();
-            let map = array.get(&txn, 0).unwrap().to_ymap().unwrap();
+            let map = array.get(&txn, 0).unwrap().cast::<MapRef>().unwrap();
             map.insert(&mut txn, "a", "a");
             array.insert(&mut txn, 0, 0);
         }

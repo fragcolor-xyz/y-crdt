@@ -7,10 +7,7 @@ use crate::types::{
     EntryChange, EventHandler, MapRef, Observers, Path, ToJson, TypePtr, TypeRef, Value,
     TYPE_REFS_XML_ELEMENT, TYPE_REFS_XML_FRAGMENT,
 };
-use crate::{
-    ArrayRef, GetString, IndexedSequence, Map, Observable, ReadTxn, StickyIndex, Text, TextRef, ID,
-};
-use lib0::any::Any;
+use crate::{ArrayRef, GetString, IndexedSequence, Map, Observable, ReadTxn, Text, TextRef, ID, Any};
 use std::borrow::Borrow;
 use std::cell::UnsafeCell;
 use std::collections::{HashMap, HashSet};
@@ -96,6 +93,19 @@ impl TryFrom<BranchPtr> for XmlNode {
             TypeRef::XmlFragment => Ok(XmlNode::Fragment(XmlFragmentRef::from(value))),
             TypeRef::XmlText => Ok(XmlNode::Text(XmlTextRef::from(value))),
             _ => Err(value),
+        }
+    }
+}
+
+impl TryFrom<Value> for XmlNode {
+    type Error = Value;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::YXmlElement(n) => Ok(XmlNode::Element(n)),
+            Value::YXmlFragment(n) => Ok(XmlNode::Fragment(n)),
+            Value::YXmlText(n) => Ok(XmlNode::Text(n)),
+            other => Err(other),
         }
     }
 }
@@ -233,6 +243,17 @@ impl TryFrom<BlockPtr> for XmlElementRef {
     }
 }
 
+impl TryFrom<Value> for XmlElementRef {
+    type Error = Value;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::YXmlElement(value) => Ok(value),
+            other => Err(other),
+        }
+    }
+}
+
 /// A preliminary type that will be materialized into an [XmlElementRef] once it will be integrated
 /// into Yrs document.
 #[derive(Debug, Clone)]
@@ -325,14 +346,13 @@ where
 /// any concurrent update incoming and applied from the remote peer may change the order of elements
 /// in current [XmlTextRef], invalidating numeric index. For such cases you can take advantage of fact
 /// that [XmlTextRef] implements [IndexedSequence::sticky_index] method that returns a
-/// [permanent index](StickyIndex) position that sticks to the same place even when concurrent
+/// [permanent index](crate::StickyIndex) position that sticks to the same place even when concurrent
 /// updates are being made.
 ///
 /// # Example
 ///
 /// ```rust
-/// use lib0::any::Any;
-/// use yrs::{Array, ArrayPrelim, Doc, GetString, Text, Transact};
+/// use yrs::{Any, Array, ArrayPrelim, Doc, GetString, Text, Transact};
 /// use yrs::types::Attrs;
 ///
 /// let doc = Doc::new();
@@ -465,6 +485,17 @@ impl TryFrom<BlockPtr> for XmlTextRef {
     }
 }
 
+impl TryFrom<Value> for XmlTextRef {
+    type Error = Value;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::YXmlText(value) => Ok(value),
+            other => Err(other),
+        }
+    }
+}
+
 /// A preliminary type that will be materialized into an [XmlTextRef] once it will be integrated
 /// into Yrs document.
 #[derive(Debug)]
@@ -585,6 +616,17 @@ impl TryFrom<BlockPtr> for XmlFragmentRef {
             Ok(Self::from(branch))
         } else {
             Err(value)
+        }
+    }
+}
+
+impl TryFrom<Value> for XmlFragmentRef {
+    type Error = Value;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::YXmlFragment(value) => Ok(value),
+            other => Err(other),
         }
     }
 }
@@ -1203,9 +1245,8 @@ mod test {
     use crate::updates::encoder::{Encoder, EncoderV1};
     use crate::{
         Doc, GetString, Observable, StateVector, Text, Transact, Update, XmlElementPrelim,
-        XmlTextPrelim,
+        XmlTextPrelim, Any
     };
-    use lib0::any::Any;
     use std::cell::RefCell;
     use std::collections::HashMap;
     use std::rc::Rc;

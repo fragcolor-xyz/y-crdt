@@ -5,7 +5,6 @@ use crate::types::{
     TypeRef, Value,
 };
 use crate::*;
-use lib0::any::Any;
 use std::borrow::Borrow;
 use std::cell::UnsafeCell;
 use std::collections::{HashMap, HashSet};
@@ -25,9 +24,7 @@ use crate::StringType;
 /// # Example
 ///
 /// ```rust
-///
-/// use lib0::any;
-/// use yrs::{Doc, Map, MapPrelim, Transact};
+/// use yrs::{any, Doc, Map, MapPrelim, Transact};
 /// use yrs::types::ToJson;
 ///
 /// let doc = Doc::new();
@@ -94,7 +91,7 @@ impl ToJson for MapRef {
                 }
             }
         }
-        Any::Map(Box::new(res))
+        Any::from(res)
     }
 }
 
@@ -118,6 +115,17 @@ impl TryFrom<BlockPtr> for MapRef {
             Ok(MapRef::from(branch))
         } else {
             Err(value)
+        }
+    }
+}
+
+impl TryFrom<Value> for MapRef {
+    type Error = Value;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::YMap(value) => Ok(value),
+            other => Err(other),
         }
     }
 }
@@ -430,12 +438,7 @@ mod test {
     use crate::types::{DeepObservable, EntryChange, Event, Path, PathSegment, ToJson, Value};
     use crate::updates::decoder::Decode;
     use crate::updates::encoder::{Encoder, EncoderV1};
-    use crate::{
-        Array, ArrayPrelim, Doc, Map, MapPrelim, MapRef, Observable, StateVector, Text, Transact,
-        Update,
-    };
-    use lib0::any;
-    use lib0::any::Any;
+    use crate::{any, Any, Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, Observable, StateVector, Text, Transact, Update};
     use rand::distributions::Alphanumeric;
     use rand::prelude::{SliceRandom, StdRng};
     use rand::Rng;
@@ -961,7 +964,7 @@ mod test {
         let nested2 = nested
             .get(&nested.transact(), "array")
             .unwrap()
-            .to_yarray()
+            .cast::<ArrayRef>()
             .unwrap();
         nested2.insert(&mut doc.transact_mut(), 0, "content");
 

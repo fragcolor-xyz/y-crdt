@@ -6,7 +6,6 @@ use crate::types::{
 };
 use crate::utils::OptionExt;
 use crate::*;
-use lib0::any::Any;
 use std::borrow::Borrow;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
@@ -47,8 +46,7 @@ use std::ops::{Deref, DerefMut};
 /// # Example
 ///
 /// ```rust
-/// use lib0::any::Any;
-/// use yrs::{Array, ArrayPrelim, Doc, GetString, Text, Transact};
+/// use yrs::{Any, Array, ArrayPrelim, Doc, GetString, Text, Transact};
 /// use yrs::types::Attrs;
 /// use yrs::types::text::{Diff, YChange};
 ///
@@ -149,6 +147,17 @@ impl TryFrom<BlockPtr> for TextRef {
             Ok(TextRef::from(branch))
         } else {
             Err(value)
+        }
+    }
+}
+
+impl TryFrom<Value> for TextRef {
+    type Error = Value;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::YText(value) => Ok(value),
+            other => Err(other),
         }
     }
 }
@@ -1082,8 +1091,8 @@ impl TextEvent {
                         let value = if let Some(str) = self.insert.take() {
                             str
                         } else {
-                            let value = self.insert_string.take().unwrap().into_boxed_str();
-                            Any::String(value).into()
+                            let value = self.insert_string.take().unwrap();
+                            Any::from(value).into()
                         };
                         let attrs = if self.current_attrs.is_empty() {
                             None
@@ -1290,12 +1299,7 @@ mod test {
     use crate::types::Value;
     use crate::updates::decoder::Decode;
     use crate::updates::encoder::{Encode, Encoder, EncoderV1};
-    use crate::{
-        ArrayPrelim, Doc, GetString, Observable, StateVector, Text, Transact, Update, XmlTextRef,
-        ID,
-    };
-    use lib0::any;
-    use lib0::any::Any;
+    use crate::{ArrayPrelim, Doc, GetString, Observable, StateVector, Text, Transact, Update, XmlTextRef, ID, Any, any};
     use rand::prelude::StdRng;
     use rand::Rng;
     use std::cell::RefCell;
