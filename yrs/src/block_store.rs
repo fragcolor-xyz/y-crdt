@@ -18,7 +18,7 @@ use crate::encoding::read::Error;
 /// Another popular name for the concept represented by state vector is
 /// [Version Vector](https://en.wikipedia.org/wiki/Version_vector).
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct StateVector(HashMap<ClientID, u32, BuildHasherDefault<ClientHasher>>);
+pub struct StateVector(HashMap<ClientID, u64, BuildHasherDefault<ClientHasher>>);
 
 impl StateVector {
     /// Checks if current state vector contains any data.
@@ -41,7 +41,7 @@ impl StateVector {
         sv
     }
 
-    pub fn new(map: HashMap<ClientID, u32, BuildHasherDefault<ClientHasher>>) -> Self {
+    pub fn new(map: HashMap<ClientID, u64, BuildHasherDefault<ClientHasher>>) -> Self {
         StateVector(map)
     }
 
@@ -58,7 +58,7 @@ impl StateVector {
 
     /// Get the latest clock sequence number value for a given `client_id` as observed from
     /// the perspective of a current state vector.
-    pub fn get(&self, client_id: &ClientID) -> u32 {
+    pub fn get(&self, client_id: &ClientID) -> u64 {
         match self.0.get(client_id) {
             Some(state) => *state,
             None => 0,
@@ -67,7 +67,7 @@ impl StateVector {
 
     /// Updates a state vector observed clock sequence number for a given `client` by incrementing
     /// it by a given `delta`.
-    pub fn inc_by(&mut self, client: ClientID, delta: u32) {
+    pub fn inc_by(&mut self, client: ClientID, delta: u64) {
         if delta > 0 {
             let e = self.0.entry(client).or_default();
             *e = *e + delta;
@@ -77,7 +77,7 @@ impl StateVector {
     /// Updates a state vector observed clock sequence number for a given `client` by setting it to
     /// a minimum value between an already present one and the provided `clock`. In case if state
     /// vector didn't contain any value for that `client`, a `clock` value will be used.
-    pub fn set_min(&mut self, client: ClientID, clock: u32) {
+    pub fn set_min(&mut self, client: ClientID, clock: u64) {
         match self.0.entry(client) {
             Entry::Occupied(e) => {
                 let value = e.into_mut();
@@ -92,14 +92,14 @@ impl StateVector {
     /// Updates a state vector observed clock sequence number for a given `client` by setting it to
     /// a maximum value between an already present one and the provided `clock`. In case if state
     /// vector didn't contain any value for that `client`, a `clock` value will be used.
-    pub fn set_max(&mut self, client: ClientID, clock: u32) {
+    pub fn set_max(&mut self, client: ClientID, clock: u64) {
         let e = self.0.entry(client).or_default();
         *e = (*e).max(clock);
     }
 
     /// Returns an iterator which enables to traverse over all clients and their known clock values
     /// described by a current state vector.
-    pub fn iter(&self) -> std::collections::hash_map::Iter<ClientID, u32> {
+    pub fn iter(&self) -> std::collections::hash_map::Iter<ClientID, u64> {
         self.0.iter()
     }
 
@@ -117,7 +117,7 @@ impl StateVector {
 
 impl Decode for StateVector {
     fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, Error> {
-        let len = decoder.read_var::<u32>()? as usize;
+        let len = decoder.read_var::<u64>()? as usize;
         let mut sv = HashMap::with_capacity_and_hasher(len, BuildHasherDefault::default());
         let mut i = 0;
         while i < len {
@@ -229,7 +229,7 @@ impl ClientBlockList {
     /// represented by this block list. This is an exclusive value meaning, that it actually
     /// describes a clock sequence number that **will be** assigned, when a new block will be
     /// appended to current list.
-    pub fn get_state(&self) -> u32 {
+    pub fn get_state(&self) -> u64 {
         let item = self.get(self.list.len() - 1);
         item.id().clock + item.len()
     }
@@ -250,7 +250,7 @@ impl ClientBlockList {
 
     /// Given a block's identifier clock value, return an offset under which this block could be
     /// found using binary search algorithm.
-    pub(crate) fn find_pivot(&self, clock: u32) -> Option<usize> {
+    pub(crate) fn find_pivot(&self, clock: u64) -> Option<usize> {
         let mut left = 0;
         let mut right = self.list.len() - 1;
         let mut block = self.get(right);
@@ -263,7 +263,7 @@ impl ClientBlockList {
             // Currently, the only advantage is that search with pivoting might find the item on the first try.
             //let clock = clock.min(right as u32);
             let div = current_clock + block.len() - 1;
-            let mut mid = ((clock / div) * right as u32) as usize;
+            let mut mid = ((clock / div) * right as u64) as usize;
             while left <= right {
                 block = self.get(mid);
                 current_clock = block.id().clock;
@@ -286,7 +286,7 @@ impl ClientBlockList {
     /// list. Clocks are considered to work in left-side inclusive way, meaning that block with
     /// an ID (<client-id>, 0) and length 2, with contain all elements with clock values
     /// corresponding to {0,1} but not 2.
-    pub(crate) fn get_block(&self, clock: u32) -> Option<BlockPtr> {
+    pub(crate) fn get_block(&self, clock: u64) -> Option<BlockPtr> {
         let idx = self.find_pivot(clock)?;
         self.try_get(idx)
     }
@@ -455,7 +455,7 @@ impl BlockStore {
     /// Returns the last observed clock sequence number for a given `client`. This is exclusive
     /// value meaning it describes a clock value of the beginning of the next block that's about
     /// to be inserted. You cannot use that clock value to find any existing block content.
-    pub fn get_state(&self, client: &ClientID) -> u32 {
+    pub fn get_state(&self, client: &ClientID) -> u64 {
         if let Some(client_structs) = self.clients.get(client) {
             client_structs.get_state()
         } else {
@@ -488,7 +488,7 @@ impl BlockStore {
     pub fn split_block(
         &mut self,
         mut block: BlockPtr,
-        offset: u32,
+        offset: u64,
         encoding: OffsetKind,
     ) -> Option<BlockPtr> {
         let id = block.id().clone();
@@ -501,7 +501,7 @@ impl BlockStore {
         Some(right_ptr)
     }
 
-    pub(crate) fn split_block_inner(&mut self, block: BlockPtr, offset: u32) -> Option<BlockPtr> {
+    pub(crate) fn split_block_inner(&mut self, block: BlockPtr, offset: u64) -> Option<BlockPtr> {
         self.split_block(block, offset, OffsetKind::Utf16)
     }
 }

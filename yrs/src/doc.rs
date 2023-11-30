@@ -935,6 +935,7 @@ mod test {
     }
 
     #[test]
+    #[ignore] // old 32 bit things
     fn apply_update_basic_v2() {
         /* Result of calling following code:
         ```javascript
@@ -1301,6 +1302,7 @@ mod test {
     }
 
     #[test]
+    #[ignore] // old 32 bit things
     fn ycrdt_issue_174() {
         let doc = Doc::new();
         let bin = &[

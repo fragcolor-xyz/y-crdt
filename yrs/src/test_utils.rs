@@ -490,7 +490,7 @@ impl TestPeer {
 }
 
 pub(crate) trait RngExt: RngCore {
-    fn between(&mut self, x: u32, y: u32) -> u32 {
+    fn between(&mut self, x: u64, y: u64) -> u64 {
         let a = x.min(y);
         let b = x.max(y);
         if a == b {
