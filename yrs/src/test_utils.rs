@@ -99,7 +99,7 @@ impl TestConnector {
     pub fn with_peer_num(rng: StdRng, peer_num: u64) -> Self {
         let mut tc = Self::with_rng(rng);
         for client_id in 0..peer_num {
-            let peer = tc.create_peer(client_id as ClientID);
+            let peer = tc.create_peer(client_id);
             peer.doc.get_or_insert_text("text");
             peer.doc.get_or_insert_map("map");
         }
