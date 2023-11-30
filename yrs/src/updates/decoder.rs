@@ -194,7 +194,7 @@ pub struct DecoderV2<'a> {
     cursor: Cursor<'a>,
     keys: Vec<Arc<str>>,
     ds_curr_val: u64,
-    key_clock_decoder: IntDiffOptRleDecoder<'a>,
+    key_clock_decoder: UIntOptRleDecoder<'a>,
     client_decoder: UIntOptRleDecoder<'a>,
     left_clock_decoder: UIntOptRleDecoder<'a>,
     right_clock_decoder: UIntOptRleDecoder<'a>,
@@ -231,7 +231,7 @@ impl<'a> DecoderV2<'a> {
             cursor,
             ds_curr_val: 0,
             keys: Vec::new(),
-            key_clock_decoder: IntDiffOptRleDecoder::new(Cursor::new(key_clock_buf)),
+            key_clock_decoder: UIntOptRleDecoder::new(Cursor::new(key_clock_buf)),
             client_decoder: UIntOptRleDecoder::new(Cursor::new(client_buf)),
             left_clock_decoder: UIntOptRleDecoder::new(Cursor::new(left_clock_buf)),
             right_clock_decoder: UIntOptRleDecoder::new(Cursor::new(right_clock_buf)),
@@ -350,7 +350,7 @@ impl<'a> Decoder for DecoderV2<'a> {
     }
 
     fn read_key(&mut self) -> Result<Arc<str>, Error> {
-        let key_clock = self.key_clock_decoder.read_u32()?;
+        let key_clock = self.key_clock_decoder.read_u64()?;
         if let Some(key) = self.keys.get(key_clock as usize) {
             Ok(key.clone())
         } else {
