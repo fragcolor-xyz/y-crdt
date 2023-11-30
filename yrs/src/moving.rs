@@ -563,7 +563,7 @@ impl StickyIndex {
     pub fn at<T: ReadTxn>(
         txn: &T,
         branch: BranchPtr,
-        mut index: u32,
+        mut index: u64,
         assoc: Assoc,
     ) -> Option<Self> {
         if assoc == Assoc::Before {
@@ -775,7 +775,7 @@ pub trait IndexedSequence: AsRef<Branch> {
     fn sticky_index(
         &self,
         txn: &mut TransactionMut,
-        index: u32,
+        index: u64,
         assoc: Assoc,
     ) -> Option<StickyIndex> {
         StickyIndex::at(txn, BranchPtr::from(self.as_ref()), index, assoc)
@@ -789,13 +789,13 @@ pub struct Offset {
     /// Pointer to a collection type [Offset] refers to.
     pub branch: BranchPtr,
     /// Human readable index corresponding to this [Offset].
-    pub index: u32,
+    pub index: u64,
     /// Association type used by [StickyIndex] this structure was created from.
     pub assoc: Assoc,
 }
 
 impl Offset {
-    fn new(branch: BranchPtr, index: u32, assoc: Assoc) -> Self {
+    fn new(branch: BranchPtr, index: u64, assoc: Assoc) -> Self {
         Offset {
             branch,
             index,
@@ -824,7 +824,7 @@ mod test {
                 let abs_pos = decoded
                     .get_offset(&txn)
                     .expect(&format!("offset not found for index {} of {}", i, decoded));
-                assert_eq!(abs_pos.index, i);
+                assert_eq!(abs_pos.index, i as u64);
                 assert_eq!(abs_pos.assoc, assoc);
             }
         }
