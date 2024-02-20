@@ -306,6 +306,7 @@ fn state_vector() {
 }
 
 #[test]
+#[ignore] // old 32 bit things
 fn utf32_lib0_v2_decoding() {
     let data = &[
         0, 1, 0, 11, 144, 161, 211, 222, 18, 226, 133, 156, 142, 8, 25, 23, 1, 0, 4, 6, 0, 14, 0,

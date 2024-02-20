@@ -137,7 +137,7 @@ impl TryFrom<Value> for ArrayRef {
 
 pub trait Array: AsRef<Branch> + Sized {
     /// Returns a number of elements stored in current array.
-    fn len<T: ReadTxn>(&self, txn: &T) -> u32 {
+    fn len<T: ReadTxn>(&self, txn: &T) -> u64 {
         self.as_ref().len()
     }
 
@@ -150,7 +150,7 @@ pub trait Array: AsRef<Branch> + Sized {
     /// # Panics
     ///
     /// This method will panic if provided `index` is greater than the current length of an [ArrayRef].
-    fn insert<V>(&self, txn: &mut TransactionMut, index: u32, value: V) -> V::Return
+    fn insert<V>(&self, txn: &mut TransactionMut, index: u64, value: V) -> V::Return
     where
         V: Prelim,
     {
@@ -174,7 +174,7 @@ pub trait Array: AsRef<Branch> + Sized {
     /// # Panics
     ///
     /// This method will panic if provided `index` is greater than the current length of an [ArrayRef].
-    fn insert_range<T, V>(&self, txn: &mut TransactionMut, index: u32, values: T)
+    fn insert_range<T, V>(&self, txn: &mut TransactionMut, index: u64, values: T)
     where
         T: IntoIterator<Item = V>,
         V: Into<Any>,
@@ -204,7 +204,7 @@ pub trait Array: AsRef<Branch> + Sized {
     }
 
     /// Removes a single element at provided `index`.
-    fn remove(&self, txn: &mut TransactionMut, index: u32) {
+    fn remove(&self, txn: &mut TransactionMut, index: u64) {
         self.remove_range(txn, index, 1)
     }
 
@@ -212,7 +212,7 @@ pub trait Array: AsRef<Branch> + Sized {
     /// a particular number described by `len` has been deleted. This method panics in case when
     /// not all expected elements were removed (due to insufficient number of elements in an array)
     /// or `index` is outside of the bounds of an array.
-    fn remove_range(&self, txn: &mut TransactionMut, index: u32, len: u32) {
+    fn remove_range(&self, txn: &mut TransactionMut, index: u64, len: u64) {
         let mut walker = BlockIter::new(BranchPtr::from(self.as_ref()));
         if walker.try_forward(txn, index) {
             walker.delete(txn, len)
@@ -223,7 +223,7 @@ pub trait Array: AsRef<Branch> + Sized {
 
     /// Retrieves a value stored at a given `index`. Returns `None` when provided index was out
     /// of the range of a current array.
-    fn get<T: ReadTxn>(&self, txn: &T, index: u32) -> Option<Value> {
+    fn get<T: ReadTxn>(&self, txn: &T, index: u64) -> Option<Value> {
         let mut walker = BlockIter::new(BranchPtr::from(self.as_ref()));
         if walker.try_forward(txn, index) {
             walker.read_value(txn)
@@ -239,7 +239,7 @@ pub trait Array: AsRef<Branch> + Sized {
     ///
     /// This method panics if either `source` or `target` indexes are greater than current array's
     /// length.
-    fn move_to(&self, txn: &mut TransactionMut, source: u32, target: u32) {
+    fn move_to(&self, txn: &mut TransactionMut, source: u64, target: u64) {
         if source == target || source + 1 == target {
             // It doesn't make sense to move a range into the same range (it's basically a no-op).
             return;
@@ -286,11 +286,11 @@ pub trait Array: AsRef<Branch> + Sized {
     fn move_range_to(
         &self,
         txn: &mut TransactionMut,
-        start: u32,
+        start: u64,
         assoc_start: Assoc,
-        end: u32,
+        end: u64,
         assoc_end: Assoc,
-        target: u32,
+        target: u64,
     ) {
         if start <= target && target <= end {
             // It doesn't make sense to move a range into the same range (it's basically a no-op).
@@ -1077,7 +1077,7 @@ mod test {
             let mut pos = rng.between(0, yarray.len(&txn)) as usize;
             if let Any::Array(expected) = yarray.to_json(&txn) {
                 let mut expected = Vec::from(expected.as_ref());
-                yarray.insert_range(&mut txn, pos as u32, content.clone());
+                yarray.insert_range(&mut txn, pos as u64, content.clone());
 
                 for any in content {
                     expected.insert(pos, any);

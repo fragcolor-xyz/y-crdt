@@ -407,9 +407,9 @@ pub struct Branch {
 
     /// A length of an indexed sequence component of a current branch node. Map component elements
     /// are computed on demand.
-    pub block_len: u32,
+    pub block_len: u64,
 
-    pub content_len: u32,
+    pub content_len: u64,
 
     /// An identifier of an underlying complex data type (eg. is it an Array or a Map).
     pub(crate) type_ref: TypeRef,
@@ -465,11 +465,11 @@ impl Branch {
 
     /// Returns a length of an indexed sequence component of a current branch node.
     /// Map component elements are computed on demand.
-    pub fn len(&self) -> u32 {
+    pub fn len(&self) -> u64 {
         self.block_len
     }
 
-    pub fn content_len(&self) -> u32 {
+    pub fn content_len(&self) -> u64 {
         self.content_len
     }
 
@@ -501,7 +501,7 @@ impl Branch {
     /// location within wrapping item content.
     /// If `index` was outside of the array component boundary of current branch node, `None` will
     /// be returned.
-    pub(crate) fn get_at(&self, mut index: u32) -> Option<(&ItemContent, usize)> {
+    pub(crate) fn get_at(&self, mut index: u64) -> Option<(&ItemContent, usize)> {
         let mut ptr = self.start.as_ref();
         while let Some(item) = ptr.map(ItemPtr::deref) {
             let len = item.len();
@@ -559,7 +559,7 @@ impl Branch {
     fn index_to_ptr(
         txn: &mut TransactionMut,
         mut ptr: Option<ItemPtr>,
-        mut index: u32,
+        mut index: u64,
     ) -> (Option<ItemPtr>, Option<ItemPtr>) {
         let encoding = txn.store.options.offset_kind;
         while let Some(item) = ptr {
@@ -593,7 +593,7 @@ impl Branch {
     }
     /// Removes up to a `len` of countable elements from current branch sequence, starting at the
     /// given `index`. Returns number of removed elements.
-    pub(crate) fn remove_at(&self, txn: &mut TransactionMut, index: u32, len: u32) -> u32 {
+    pub(crate) fn remove_at(&self, txn: &mut TransactionMut, index: u64, len: u64) -> u64 {
         let mut remaining = len;
         let start = { self.start };
         let (_, mut ptr) = if index == 0 {
@@ -644,7 +644,7 @@ impl Branch {
     pub(crate) fn insert_at<V: Prelim>(
         &self,
         txn: &mut TransactionMut,
-        index: u32,
+        index: u64,
         value: V,
     ) -> ItemPtr {
         let (start, parent) = {
@@ -877,9 +877,10 @@ impl_try_from!(f32);
 impl_try_from!(f64);
 impl_try_from!(i16);
 impl_try_from!(i32);
+impl_try_from!(i64);
 impl_try_from!(u16);
 impl_try_from!(u32);
-impl_try_from!(i64);
+impl_try_from!(u64);
 impl_try_from!(isize);
 impl_try_from!(String);
 impl_try_from!(Arc<str>);
@@ -1169,7 +1170,7 @@ pub enum PathSegment {
 
     /// Index segments are used to inform how to access child shared collections within an [Array]
     /// or [XmlElement] types.
-    Index(u32),
+    Index(u64),
 }
 
 pub(crate) struct ChangeSet<D> {
@@ -1198,11 +1199,11 @@ pub enum Change {
 
     /// Determines a change that resulted in removing a consecutive range of existing elements,
     /// either XML child nodes for [XmlElement] or various elements stored in an [Array].
-    Removed(u32),
+    Removed(u64),
 
     /// Determines a number of consecutive unchanged elements. Used to recognize non-edited spaces
     /// between [Change::Added] and/or [Change::Removed] chunks.
-    Retain(u32),
+    Retain(u64),
 }
 
 /// A single change done over a map-component of shared data type.
@@ -1227,12 +1228,12 @@ pub enum Delta {
     Inserted(Value, Option<Box<Attrs>>),
 
     /// Determines a change that resulted in removing a consecutive range of characters.
-    Deleted(u32),
+    Deleted(u64),
 
     /// Determines a number of consecutive unchanged characters. Used to recognize non-edited spaces
     /// between [Delta::Inserted] and/or [Delta::Deleted] chunks. Can contain an optional set of
     /// attributes, which have been used to format an existing piece of text.
-    Retain(u32, Option<Box<Attrs>>),
+    Retain(u64, Option<Box<Attrs>>),
 }
 
 /// An alias for map of attributes used as formatting parameters by [Text] and [XmlText] types.

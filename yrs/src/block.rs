@@ -87,11 +87,11 @@ pub struct ID {
     /// operation in a scope of a given `client`. This value doesn't have to increase by 1, but
     /// instead is increased by number of countable elements which make a content of an inserted
     /// block.
-    pub clock: u32,
+    pub clock: u64,
 }
 
 impl ID {
-    pub fn new(client: ClientID, clock: u32) -> Self {
+    pub fn new(client: ClientID, clock: u64) -> Self {
         ID { client, clock }
     }
 }
@@ -121,14 +121,14 @@ impl std::fmt::Debug for BlockCell {
 }
 
 impl BlockCell {
-    pub fn clock_start(&self) -> u32 {
+    pub fn clock_start(&self) -> u64 {
         match self {
             BlockCell::GC(gc) => gc.start,
             BlockCell::Block(item) => item.id.clock,
         }
     }
 
-    pub fn clock_end(&self) -> u32 {
+    pub fn clock_end(&self) -> u64 {
         match self {
             BlockCell::GC(gc) => gc.end,
             BlockCell::Block(item) => item.id.clock + item.len - 1,
@@ -136,7 +136,7 @@ impl BlockCell {
     }
 
     /// Returns a range of first and the last clock sequence numbers that belong to a current block.
-    pub fn clock_range(&self) -> (u32, u32) {
+    pub fn clock_range(&self) -> (u64, u64) {
         match self {
             BlockCell::GC(gc) => (gc.start, gc.end),
             BlockCell::Block(block) => block.clock_range(),
@@ -150,7 +150,7 @@ impl BlockCell {
         }
     }
 
-    pub fn len(&self) -> u32 {
+    pub fn len(&self) -> u64 {
         match self {
             BlockCell::GC(gc) => gc.end - gc.start,
             BlockCell::Block(block) => block.len(),
@@ -190,17 +190,17 @@ impl From<GC> for BlockCell {
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub(crate) struct GC {
-    pub start: u32,
-    pub end: u32,
+    pub start: u64,
+    pub end: u64,
 }
 
 impl GC {
     #[inline]
-    pub fn new(start: u32, end: u32) -> Self {
+    pub fn new(start: u64, end: u64) -> Self {
         GC { start, end }
     }
 
-    pub fn len(&self) -> u32 {
+    pub fn len(&self) -> u64 {
         self.end - self.start + 1
     }
 }
@@ -426,7 +426,7 @@ impl ItemPtr {
         }
     }
 
-    pub(crate) fn splice(&mut self, offset: u32, encoding: OffsetKind) -> Option<Box<Item>> {
+    pub(crate) fn splice(&mut self, offset: u64, encoding: OffsetKind) -> Option<Box<Item>> {
         let self_ptr = self.clone();
         if offset == 0 {
             None
@@ -473,7 +473,7 @@ impl ItemPtr {
 
     /// Integrates current block into block store.
     /// If it returns true, it means that the block should be deleted after being added to a block store.
-    pub(crate) fn integrate(&mut self, txn: &mut TransactionMut, offset: u32) -> bool {
+    pub(crate) fn integrate(&mut self, txn: &mut TransactionMut, offset: u64) -> bool {
         let self_ptr = self.clone();
         let this = self.deref_mut();
         let store = txn.store_mut();
@@ -854,7 +854,7 @@ impl TryFrom<ItemPtr> for Any {
 }
 
 impl Item {
-    pub(crate) fn clock_range(&self) -> (u32, u32) {
+    pub(crate) fn clock_range(&self) -> (u64, u64) {
         let start = self.id.clock;
         let end = start + self.len - 1;
         (start, end)
@@ -914,7 +914,7 @@ pub(crate) struct ItemPosition {
     pub parent: types::TypePtr,
     pub left: Option<ItemPtr>,
     pub right: Option<ItemPtr>,
-    pub index: u32,
+    pub index: u64,
     pub current_attrs: Option<Box<Attrs>>,
 }
 
@@ -1084,7 +1084,7 @@ pub struct Item {
     pub(crate) id: ID,
 
     /// A number of splittable updates within a current [Item].
-    pub(crate) len: u32,
+    pub(crate) len: u64,
 
     /// Pointer to left neighbor of this item. Used in sequenced collections.
     /// If `None`, then current item is the first one on its [parent](Item::parent) collection.
@@ -1132,11 +1132,11 @@ pub struct BlockRange {
     /// [ID] of the first update stored within current [BlockRange] bounds.
     pub id: ID,
     /// Number of splittable updates stored within this [BlockRange].
-    pub len: u32,
+    pub len: u64,
 }
 
 impl BlockRange {
-    pub fn new(id: ID, len: u32) -> Self {
+    pub fn new(id: ID, len: u64) -> Self {
         BlockRange { id, len }
     }
 
@@ -1159,14 +1159,14 @@ impl BlockRange {
     /// assert_eq!(b.id, ID::new(1, 5));
     /// assert_eq!(b.last_id(), ID::new(1, 10));
     /// ```
-    pub fn slice(&self, offset: u32) -> Self {
+    pub fn slice(&self, offset: u64) -> Self {
         let mut next = self.clone();
         next.id.clock += offset;
         next.len -= offset;
         next
     }
 
-    pub(crate) fn integrate(&mut self, pivot: u32) -> bool {
+    pub(crate) fn integrate(&mut self, pivot: u64) -> bool {
         if pivot > 0 {
             self.id.clock += pivot;
             self.len -= pivot;
@@ -1335,11 +1335,11 @@ impl Item {
     /// Yjs we need to calculate string length in terms of UTF-16 character encoding.
     /// However depending on used [Encoding] scheme we may calculate string length/offsets
     /// differently.
-    pub fn len(&self) -> u32 {
+    pub fn len(&self) -> u64 {
         self.len
     }
 
-    pub fn content_len(&self, kind: OffsetKind) -> u32 {
+    pub fn content_len(&self, kind: OffsetKind) -> u64 {
         self.content.len(kind)
     }
 
@@ -1401,7 +1401,7 @@ impl SplittableString {
     /// Maps given offset onto block offset. This means, that given an `offset` provided
     /// in given `encoding` we want the output as a UTF-16 compatible offset (required
     /// by Yjs for compatibility reasons).
-    pub(crate) fn block_offset(&self, offset: u32, kind: OffsetKind) -> u32 {
+    pub(crate) fn block_offset(&self, offset: u64, kind: OffsetKind) -> u64 {
         match kind {
             OffsetKind::Utf16 => offset,
             OffsetKind::Bytes => {
@@ -1413,8 +1413,8 @@ impl SplittableString {
                     if remaining == 0 {
                         break;
                     }
-                    remaining -= c.len_utf8() as u32;
-                    i += c.len_utf16() as u32;
+                    remaining -= c.len_utf8() as u64;
+                    i += c.len_utf16() as u64;
                 }
                 i
             }
@@ -1501,7 +1501,7 @@ pub enum ItemContent {
 
     /// A marker for delete item data, which describes a number of deleted elements.
     /// Deleted elements also don't contribute to an overall length of containing collection type.
-    Deleted(u32),
+    Deleted(u64),
 
     /// Sub-document container. Contains weak reference to a parent document and a child document.
     Doc(Option<WeakStoreRef>, Doc),
@@ -1577,12 +1577,12 @@ impl ItemContent {
     ///
     /// In cases of counting number of visible elements, `len` method should be used together with
     /// [ItemContent::is_countable].
-    pub fn len(&self, kind: OffsetKind) -> u32 {
+    pub fn len(&self, kind: OffsetKind) -> u64 {
         match self {
             ItemContent::Deleted(deleted) => *deleted,
-            ItemContent::String(str) => str.len(kind) as u32,
-            ItemContent::Any(v) => v.len() as u32,
-            ItemContent::JSON(v) => v.len() as u32,
+            ItemContent::String(str) => str.len(kind) as u64,
+            ItemContent::Any(v) => v.len() as u64,
+            ItemContent::JSON(v) => v.len() as u64,
             _ => 1,
         }
     }
@@ -1696,7 +1696,7 @@ impl ItemContent {
 
     /// Encodes a slice of a current [ItemContent] within an index bounds of (start..=end) - both
     /// sides inclusive.
-    pub fn encode_slice<E: Encoder>(&self, encoder: &mut E, start: u32, end: u32) {
+    pub fn encode_slice<E: Encoder>(&self, encoder: &mut E, start: u64, end: u64) {
         match self {
             ItemContent::Deleted(_) => encoder.write_len(end - start + 1),
             ItemContent::Binary(buf) => encoder.write_buf(buf),
@@ -1748,7 +1748,7 @@ impl ItemContent {
             ItemContent::String(s) => encoder.write_string(s.as_str()),
             ItemContent::Embed(s) => encoder.write_json(s),
             ItemContent::JSON(s) => {
-                encoder.write_len(s.len() as u32);
+                encoder.write_len(s.len() as u64);
                 for json in s.iter() {
                     encoder.write_string(json.as_str())
                 }
@@ -1761,7 +1761,7 @@ impl ItemContent {
                 inner.type_ref.encode(encoder);
             }
             ItemContent::Any(any) => {
-                encoder.write_len(any.len() as u32);
+                encoder.write_len(any.len() as u64);
                 for a in any.iter() {
                     encoder.write_any(a);
                 }
@@ -1851,8 +1851,8 @@ impl ItemContent {
                 Some(ItemContent::String(right))
             }
             ItemContent::Deleted(len) => {
-                let right = ItemContent::Deleted(*len - offset as u32);
-                *len = offset as u32;
+                let right = ItemContent::Deleted(*len - offset as u64);
+                *len = offset as u64;
                 Some(right)
             }
             ItemContent::JSON(value) => {
