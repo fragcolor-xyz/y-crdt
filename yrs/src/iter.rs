@@ -328,7 +328,7 @@ where
         }
     }
 
-    fn begin<T: ReadTxn>(&mut self, txn: &T, start_offset: &mut u32) -> Option<ItemPtr> {
+    fn begin<T: ReadTxn>(&mut self, txn: &T, start_offset: &mut u64) -> Option<ItemPtr> {
         let mut offset = 0;
         let mut curr = self.iter.next(txn);
         while let Some(ptr) = curr {
@@ -476,7 +476,7 @@ where
                         let mut buf = [Value::default()];
                         let read = item.content.read(slice.start as usize, &mut buf);
                         if read != 0 {
-                            slice.start += read as u32;
+                            slice.start += read as u64;
                             return Some(std::mem::take(&mut buf[0]));
                         }
                     }

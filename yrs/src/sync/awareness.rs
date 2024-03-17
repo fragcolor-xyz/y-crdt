@@ -293,7 +293,7 @@ impl Decode for AwarenessUpdate {
         let mut clients = HashMap::with_capacity(len);
         for _ in 0..len {
             let client_id: ClientID = decoder.read_var()?;
-            let clock: u32 = decoder.read_var()?;
+            let clock: u64 = decoder.read_var()?;
             let json = decoder.read_string()?.to_string();
             clients.insert(client_id, AwarenessUpdateEntry { clock, json });
         }
@@ -306,7 +306,7 @@ impl Decode for AwarenessUpdate {
 /// state represented as a string.
 #[derive(Debug, Eq, PartialEq)]
 pub struct AwarenessUpdateEntry {
-    pub(crate) clock: u32,
+    pub(crate) clock: u64,
     pub(crate) json: String,
 }
 
@@ -320,12 +320,12 @@ pub enum Error {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct MetaClientState {
-    clock: u32,
+    clock: u64,
     last_updated: Instant,
 }
 
 impl MetaClientState {
-    fn new(clock: u32, last_updated: Instant) -> Self {
+    fn new(clock: u64, last_updated: Instant) -> Self {
         MetaClientState {
             clock,
             last_updated,

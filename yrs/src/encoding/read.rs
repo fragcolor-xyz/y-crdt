@@ -79,7 +79,7 @@ pub trait Read: Sized {
 
     /// Read a variable length buffer.
     fn read_buf(&mut self) -> Result<&[u8], Error> {
-        let len: u32 = self.read_var()?;
+        let len: u64 = self.read_var()?;
         self.read_exact(len as usize)
     }
 

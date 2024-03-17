@@ -86,7 +86,7 @@ impl Store {
     /// This is exclusive value meaning it describes a clock value of the beginning of the next
     /// block that's about to be inserted. You cannot use that clock value to find any existing
     /// block content.
-    pub fn get_local_state(&self) -> u32 {
+    pub fn get_local_state(&self) -> u64 {
         self.blocks.get_clock(&self.options.client_id)
     }
 
@@ -218,7 +218,7 @@ impl Store {
         }
     }
 
-    fn diff_state_vectors(local_sv: &StateVector, remote_sv: &StateVector) -> Vec<(ClientID, u32)> {
+    fn diff_state_vectors(local_sv: &StateVector, remote_sv: &StateVector) -> Vec<(ClientID, u64)> {
         let mut diff = Vec::new();
         for (client, &remote_clock) in remote_sv.iter() {
             let local_clock = local_sv.get(client);
@@ -328,7 +328,7 @@ impl Store {
         SubdocGuids(self.subdocs.values())
     }
 
-    pub(crate) fn follow_redone(&self, id: &ID) -> (Option<ItemPtr>, u32) {
+    pub(crate) fn follow_redone(&self, id: &ID) -> (Option<ItemPtr>, u64) {
         let mut next_id = Some(*id);
         let mut ptr = None;
         let mut diff = 0;
