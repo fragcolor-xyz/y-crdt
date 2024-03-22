@@ -47,10 +47,10 @@ fn test_editing_trace(fpath: &str) {
             let content = patch.2;
 
             if delete != 0 {
-                txt.remove_range(&mut txn, at as u32, delete as u32);
+                txt.remove_range(&mut txn, at as u64, delete as u64);
             }
             if !content.is_empty() {
-                txt.insert(&mut txn, at as u32, &content);
+                txt.insert(&mut txn, at as u64, &content);
             }
         }
     }
