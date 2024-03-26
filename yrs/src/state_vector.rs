@@ -16,7 +16,7 @@ use std::hash::BuildHasherDefault;
 /// Another popular name for the concept represented by state vector is
 /// [Version Vector](https://en.wikipedia.org/wiki/Version_vector).
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct StateVector(HashMap<ClientID, u32, BuildHasherDefault<ClientHasher>>);
+pub struct StateVector(HashMap<ClientID, u64, BuildHasherDefault<ClientHasher>>);
 
 impl StateVector {
     /// Checks if current state vector contains any data.
@@ -30,7 +30,7 @@ impl StateVector {
         self.0.len()
     }
 
-    pub fn new(map: HashMap<ClientID, u32, BuildHasherDefault<ClientHasher>>) -> Self {
+    pub fn new(map: HashMap<ClientID, u64, BuildHasherDefault<ClientHasher>>) -> Self {
         StateVector(map)
     }
 
@@ -47,7 +47,7 @@ impl StateVector {
 
     /// Get the latest clock sequence number value for a given `client_id` as observed from
     /// the perspective of a current state vector.
-    pub fn get(&self, client_id: &ClientID) -> u32 {
+    pub fn get(&self, client_id: &ClientID) -> u64 {
         match self.0.get(client_id) {
             Some(state) => *state,
             None => 0,
@@ -56,7 +56,7 @@ impl StateVector {
 
     /// Updates a state vector observed clock sequence number for a given `client` by incrementing
     /// it by a given `delta`.
-    pub fn inc_by(&mut self, client: ClientID, delta: u32) {
+    pub fn inc_by(&mut self, client: ClientID, delta: u64) {
         if delta > 0 {
             let e = self.0.entry(client).or_default();
             *e = *e + delta;
@@ -66,7 +66,7 @@ impl StateVector {
     /// Updates a state vector observed clock sequence number for a given `client` by setting it to
     /// a minimum value between an already present one and the provided `clock`. In case if state
     /// vector didn't contain any value for that `client`, a `clock` value will be used.
-    pub fn set_min(&mut self, client: ClientID, clock: u32) {
+    pub fn set_min(&mut self, client: ClientID, clock: u64) {
         match self.0.entry(client) {
             Entry::Occupied(e) => {
                 let value = e.into_mut();
@@ -81,14 +81,14 @@ impl StateVector {
     /// Updates a state vector observed clock sequence number for a given `client` by setting it to
     /// a maximum value between an already present one and the provided `clock`. In case if state
     /// vector didn't contain any value for that `client`, a `clock` value will be used.
-    pub fn set_max(&mut self, client: ClientID, clock: u32) {
+    pub fn set_max(&mut self, client: ClientID, clock: u64) {
         let e = self.0.entry(client).or_default();
         *e = (*e).max(clock);
     }
 
     /// Returns an iterator which enables to traverse over all clients and their known clock values
     /// described by a current state vector.
-    pub fn iter(&self) -> std::collections::hash_map::Iter<ClientID, u32> {
+    pub fn iter(&self) -> std::collections::hash_map::Iter<ClientID, u64> {
         self.0.iter()
     }
 
@@ -106,7 +106,7 @@ impl StateVector {
 
 impl Decode for StateVector {
     fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, Error> {
-        let len = decoder.read_var::<u32>()? as usize;
+        let len = decoder.read_var::<u64>()? as usize;
         let mut sv = HashMap::with_capacity_and_hasher(len, BuildHasherDefault::default());
         let mut i = 0;
         while i < len {

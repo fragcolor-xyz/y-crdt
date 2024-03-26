@@ -25,16 +25,16 @@ pub trait Decode: Sized {
 /// 1. 1st version (implemented in Yrs) uses simple optimization techniques like var int encoding.
 /// 2. 2nd version optimizes bigger batches of blocks by using run-length encoding.
 ///
-/// Both of these define a common set of operations defined in this trait.  
+/// Both of these define a common set of operations defined in this trait.
 pub trait Decoder: Read {
     /// Reset the value of current delete set state.
     fn reset_ds_cur_val(&mut self);
 
     /// Read next [DeleteSet] clock value.
-    fn read_ds_clock(&mut self) -> Result<u32, Error>;
+    fn read_ds_clock(&mut self) -> Result<u64, Error>;
 
     /// Read the number of clients stored in encoded [DeleteSet].
-    fn read_ds_len(&mut self) -> Result<u32, Error>;
+    fn read_ds_len(&mut self) -> Result<u64, Error>;
 
     /// Read left origin of a currently decoded [Block].
     fn read_left_id(&mut self) -> Result<ID, Error>;
@@ -55,7 +55,7 @@ pub trait Decoder: Read {
     fn read_type_ref(&mut self) -> Result<u8, Error>;
 
     /// Read length parameter.
-    fn read_len(&mut self) -> Result<u32, Error>;
+    fn read_len(&mut self) -> Result<u64, Error>;
 
     /// Decode a JSON-like data type. It's a complex type which is an extension of native JavaScript
     /// Object Notation.
@@ -83,9 +83,9 @@ impl<'a> DecoderV1<'a> {
     }
 
     fn read_id(&mut self) -> Result<ID, Error> {
-        let client: u32 = self.read_var()?;
+        let client = self.read_var()?;
         let clock = self.read_var()?;
-        Ok(ID::new(client as ClientID, clock))
+        Ok(ID::new(client, clock))
     }
 }
 
@@ -120,12 +120,12 @@ impl<'a> Decoder for DecoderV1<'a> {
     }
 
     #[inline]
-    fn read_ds_clock(&mut self) -> Result<u32, Error> {
+    fn read_ds_clock(&mut self) -> Result<u64, Error> {
         self.read_var()
     }
 
     #[inline]
-    fn read_ds_len(&mut self) -> Result<u32, Error> {
+    fn read_ds_len(&mut self) -> Result<u64, Error> {
         self.read_var()
     }
 
@@ -141,8 +141,8 @@ impl<'a> Decoder for DecoderV1<'a> {
 
     #[inline]
     fn read_client(&mut self) -> Result<ClientID, Error> {
-        let client: u32 = self.cursor.read_var()?;
-        Ok(client as ClientID)
+        let client = self.cursor.read_var()?;
+        Ok(client)
     }
 
     #[inline]
@@ -163,7 +163,7 @@ impl<'a> Decoder for DecoderV1<'a> {
     }
 
     #[inline]
-    fn read_len(&mut self) -> Result<u32, Error> {
+    fn read_len(&mut self) -> Result<u64, Error> {
         self.read_var()
     }
 
@@ -193,11 +193,11 @@ impl<'a> Decoder for DecoderV1<'a> {
 pub struct DecoderV2<'a> {
     cursor: Cursor<'a>,
     keys: Vec<Arc<str>>,
-    ds_curr_val: u32,
-    key_clock_decoder: IntDiffOptRleDecoder<'a>,
+    ds_curr_val: u64,
+    key_clock_decoder: UIntOptRleDecoder<'a>,
     client_decoder: UIntOptRleDecoder<'a>,
-    left_clock_decoder: IntDiffOptRleDecoder<'a>,
-    right_clock_decoder: IntDiffOptRleDecoder<'a>,
+    left_clock_decoder: UIntOptRleDecoder<'a>,
+    right_clock_decoder: UIntOptRleDecoder<'a>,
     info_decoder: RleDecoder<'a>,
     string_decoder: StringDecoder<'a>,
     parent_info_decoder: RleDecoder<'a>,
@@ -231,10 +231,10 @@ impl<'a> DecoderV2<'a> {
             cursor,
             ds_curr_val: 0,
             keys: Vec::new(),
-            key_clock_decoder: IntDiffOptRleDecoder::new(Cursor::new(key_clock_buf)),
+            key_clock_decoder: UIntOptRleDecoder::new(Cursor::new(key_clock_buf)),
             client_decoder: UIntOptRleDecoder::new(Cursor::new(client_buf)),
-            left_clock_decoder: IntDiffOptRleDecoder::new(Cursor::new(left_clock_buf)),
-            right_clock_decoder: IntDiffOptRleDecoder::new(Cursor::new(right_clock_buf)),
+            left_clock_decoder: UIntOptRleDecoder::new(Cursor::new(left_clock_buf)),
+            right_clock_decoder: UIntOptRleDecoder::new(Cursor::new(right_clock_buf)),
             info_decoder: RleDecoder::new(Cursor::new(info_buf)),
             string_decoder: StringDecoder::new(Cursor::new(string_buf))?,
             parent_info_decoder: RleDecoder::new(Cursor::new(parent_info_buf)),
@@ -296,33 +296,33 @@ impl<'a> Decoder for DecoderV2<'a> {
         self.ds_curr_val = 0;
     }
 
-    fn read_ds_clock(&mut self) -> Result<u32, Error> {
-        self.ds_curr_val += self.cursor.read_var::<u32>()?;
+    fn read_ds_clock(&mut self) -> Result<u64, Error> {
+        self.ds_curr_val += self.cursor.read_var::<u64>()?;
         Ok(self.ds_curr_val)
     }
 
-    fn read_ds_len(&mut self) -> Result<u32, Error> {
-        let diff = self.cursor.read_var::<u32>()? + 1;
+    fn read_ds_len(&mut self) -> Result<u64, Error> {
+        let diff = self.cursor.read_var::<u64>()? + 1;
         self.ds_curr_val += diff;
         Ok(diff)
     }
 
     fn read_left_id(&mut self) -> Result<ID, Error> {
         Ok(ID::new(
-            self.client_decoder.read_u64()? as ClientID,
-            self.left_clock_decoder.read_u32()?,
+            self.client_decoder.read_u64()?,
+            self.left_clock_decoder.read_u64()?,
         ))
     }
 
     fn read_right_id(&mut self) -> Result<ID, Error> {
         Ok(ID::new(
-            self.client_decoder.read_u64()? as ClientID,
-            self.right_clock_decoder.read_u32()?,
+            self.client_decoder.read_u64()?,
+            self.right_clock_decoder.read_u64()?,
         ))
     }
 
     fn read_client(&mut self) -> Result<ClientID, Error> {
-        Ok(self.client_decoder.read_u64()? as ClientID)
+        Ok(self.client_decoder.read_u64()?)
     }
 
     fn read_info(&mut self) -> Result<u8, Error> {
@@ -337,8 +337,8 @@ impl<'a> Decoder for DecoderV2<'a> {
         Ok(self.type_ref_decoder.read_u64()? as u8)
     }
 
-    fn read_len(&mut self) -> Result<u32, Error> {
-        Ok(self.len_decoder.read_u64()? as u32)
+    fn read_len(&mut self) -> Result<u64, Error> {
+        self.len_decoder.read_u64()
     }
 
     fn read_any(&mut self) -> Result<Any, Error> {
@@ -350,7 +350,7 @@ impl<'a> Decoder for DecoderV2<'a> {
     }
 
     fn read_key(&mut self) -> Result<Arc<str>, Error> {
-        let key_clock = self.key_clock_decoder.read_u32()?;
+        let key_clock = self.key_clock_decoder.read_u64()?;
         if let Some(key) = self.keys.get(key_clock as usize) {
             Ok(key.clone())
         } else {

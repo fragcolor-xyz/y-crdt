@@ -195,9 +195,9 @@ pub struct Branch {
 
     /// A length of an indexed sequence component of a current branch node. Map component elements
     /// are computed on demand.
-    pub block_len: u32,
+    pub block_len: u64,
 
-    pub content_len: u32,
+    pub content_len: u64,
 
     /// An identifier of an underlying complex data type (eg. is it an Array or a Map).
     pub(crate) type_ref: TypeRef,
@@ -279,11 +279,11 @@ impl Branch {
 
     /// Returns a length of an indexed sequence component of a current branch node.
     /// Map component elements are computed on demand.
-    pub fn len(&self) -> u32 {
+    pub fn len(&self) -> u64 {
         self.block_len
     }
 
-    pub fn content_len(&self) -> u32 {
+    pub fn content_len(&self) -> u64 {
         self.content_len
     }
 
@@ -315,7 +315,7 @@ impl Branch {
     /// location within wrapping item content.
     /// If `index` was outside of the array component boundary of current branch node, `None` will
     /// be returned.
-    pub(crate) fn get_at(&self, mut index: u32) -> Option<(&ItemContent, usize)> {
+    pub(crate) fn get_at(&self, mut index: u64) -> Option<(&ItemContent, usize)> {
         let mut ptr = self.start.as_ref();
         while let Some(item) = ptr.map(ItemPtr::deref) {
             let len = item.len();
@@ -373,7 +373,7 @@ impl Branch {
     fn index_to_ptr(
         txn: &mut TransactionMut,
         mut ptr: Option<ItemPtr>,
-        mut index: u32,
+        mut index: u64,
     ) -> (Option<ItemPtr>, Option<ItemPtr>) {
         let encoding = txn.store.options.offset_kind;
         while let Some(item) = ptr {
@@ -407,7 +407,7 @@ impl Branch {
     }
     /// Removes up to a `len` of countable elements from current branch sequence, starting at the
     /// given `index`. Returns number of removed elements.
-    pub(crate) fn remove_at(&self, txn: &mut TransactionMut, index: u32, len: u32) -> u32 {
+    pub(crate) fn remove_at(&self, txn: &mut TransactionMut, index: u64, len: u64) -> u64 {
         let mut remaining = len;
         let start = { self.start };
         let (_, mut ptr) = if index == 0 {
@@ -458,7 +458,7 @@ impl Branch {
     pub(crate) fn insert_at<V: Prelim>(
         &self,
         txn: &mut TransactionMut,
-        index: u32,
+        index: u64,
         value: V,
     ) -> ItemPtr {
         let (start, parent) = {
@@ -699,7 +699,7 @@ impl<S: SharedRef> Nested<S> {
     /// If current [Nested] logical reference points to an instantiated and not-deleted shared
     /// collection, a reference to that collection will be returned.
     /// If the referenced collection has been deleted or was not yet present in current transaction
-    /// scope i.e. due to missing update, a `None` will be returned.  
+    /// scope i.e. due to missing update, a `None` will be returned.
     pub fn get<T: ReadTxn>(&self, txn: &T) -> Option<S> {
         let store = txn.store();
         let block = store.blocks.get_block(&self.id)?;
@@ -795,7 +795,7 @@ impl<S: SharedRef> Hook<S> {
     }
 
     /// Attempts to convert current [Hook] type into [Nested] one.
-    /// Returns `None` if current descriptor doesn't reference a nested shared collection.  
+    /// Returns `None` if current descriptor doesn't reference a nested shared collection.
     pub fn into_nested(self) -> Option<Nested<S>> {
         match self.id {
             BranchID::Nested(id) => Some(Nested::new(id)),
