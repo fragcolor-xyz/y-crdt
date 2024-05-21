@@ -522,19 +522,19 @@ impl TestPeer {
 }
 
 pub(crate) trait RngExt {
-    fn between(&mut self, x: u32, y: u32) -> u32;
+    fn between(&mut self, x: u64, y: u64) -> u64;
 
     fn random_string(&mut self) -> String;
 }
 
 impl RngExt for Rng {
-    fn between(&mut self, x: u32, y: u32) -> u32 {
+    fn between(&mut self, x: u64, y: u64) -> u64 {
         let a = x.min(y);
         let b = x.max(y);
         if a == b {
             a
         } else {
-            self.u32(a..b)
+            self.u64(a..b)
         }
     }
 

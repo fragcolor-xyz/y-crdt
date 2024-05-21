@@ -157,7 +157,7 @@ impl TryFrom<Out> for TextRef {
 
 pub trait Text: AsRef<Branch> + Sized {
     /// Returns a number of characters visible in a current text data structure.
-    fn len<T: ReadTxn>(&self, _txn: &T) -> u32 {
+    fn len<T: ReadTxn>(&self, _txn: &T) -> u64 {
         self.as_ref().content_len
     }
 
@@ -209,7 +209,7 @@ pub trait Text: AsRef<Branch> + Sized {
     /// assert_eq!(ytext.get_string(txn), "Hi ★! to you");
     /// ```
     ///
-    fn insert(&self, txn: &mut TransactionMut, index: u32, chunk: &str) {
+    fn insert(&self, txn: &mut TransactionMut, index: u64, chunk: &str) {
         if chunk.is_empty() {
             return;
         }
@@ -275,7 +275,7 @@ pub trait Text: AsRef<Branch> + Sized {
     fn insert_with_attributes(
         &self,
         txn: &mut TransactionMut,
-        index: u32,
+        index: u64,
         chunk: &str,
         attributes: Attrs,
     ) {
@@ -298,7 +298,7 @@ pub trait Text: AsRef<Branch> + Sized {
     /// the end of it.
     ///
     /// This method will panic if provided `index` is greater than the length of a current text.
-    fn insert_embed<V>(&self, txn: &mut TransactionMut, index: u32, content: V) -> V::Return
+    fn insert_embed<V>(&self, txn: &mut TransactionMut, index: u64, content: V) -> V::Return
     where
         V: Into<EmbedPrelim<V>> + Prelim,
     {
@@ -328,7 +328,7 @@ pub trait Text: AsRef<Branch> + Sized {
     fn insert_embed_with_attributes<V>(
         &self,
         txn: &mut TransactionMut,
-        index: u32,
+        index: u64,
         embed: V,
         attributes: Attrs,
     ) -> V::Return
@@ -358,7 +358,7 @@ pub trait Text: AsRef<Branch> + Sized {
     /// Removes up to a `len` characters from a current text structure, starting at given `index`.
     /// This method panics in case when not all expected characters were removed (due to
     /// insufficient number of characters to remove) or `index` is outside of the bounds of text.
-    fn remove_range(&self, txn: &mut TransactionMut, index: u32, len: u32) {
+    fn remove_range(&self, txn: &mut TransactionMut, index: u64, len: u64) {
         let this = BranchPtr::from(self.as_ref());
         if let Some(mut pos) = find_position(this, txn, index) {
             remove(txn, &mut pos, len)
@@ -369,7 +369,7 @@ pub trait Text: AsRef<Branch> + Sized {
 
     /// Wraps an existing piece of text within a range described by `index`-`len` parameters with
     /// formatting blocks containing provided `attributes` metadata.
-    fn format(&self, txn: &mut TransactionMut, index: u32, len: u32, attributes: Attrs) {
+    fn format(&self, txn: &mut TransactionMut, index: u64, len: u64, attributes: Attrs) {
         let this = BranchPtr::from(self.as_ref());
         if let Some(mut pos) = find_position(this, txn, index) {
             insert_format(this, txn, &mut pos, len, attributes)
@@ -731,7 +731,7 @@ pub(crate) fn update_current_attributes(attrs: &mut Attrs, key: &str, value: &An
     }
 }
 
-fn find_position(this: BranchPtr, txn: &mut TransactionMut, index: u32) -> Option<ItemPosition> {
+fn find_position(this: BranchPtr, txn: &mut TransactionMut, index: u64) -> Option<ItemPosition> {
     let mut pos = {
         ItemPosition {
             parent: this.into(),
@@ -803,7 +803,7 @@ fn find_position(this: BranchPtr, txn: &mut TransactionMut, index: u32) -> Optio
     Some(pos)
 }
 
-fn remove(txn: &mut TransactionMut, pos: &mut ItemPosition, len: u32) {
+fn remove(txn: &mut TransactionMut, pos: &mut ItemPosition, len: u64) {
     let encoding = txn.store().options.offset_kind;
     let mut remaining = len;
     let start = pos.right.clone();
@@ -876,7 +876,7 @@ fn insert_format(
     this: BranchPtr,
     txn: &mut TransactionMut,
     pos: &mut ItemPosition,
-    mut len: u32,
+    mut len: u64,
     attrs: Attrs,
 ) {
     minimize_attr_changes(pos, &attrs);
@@ -1061,7 +1061,7 @@ fn clean_format_gap(
     mut end: Option<ItemPtr>,
     start_attrs: &Attrs,
     end_attrs: &mut Attrs,
-) -> u32 {
+) -> u64 {
     while let Some(item) = end.as_deref() {
         match &item.content {
             ItemContent::String(_) | ItemContent::Embed(_) => break,
@@ -1259,8 +1259,8 @@ impl TextEvent {
             action: Option<Action>,
             insert: Option<Out>,
             insert_string: Option<String>,
-            retain: u32,
-            delete: u32,
+            retain: u64,
+            delete: u64,
             attrs: Attrs,
             current_attrs: Attrs,
             delta: Vec<Delta>,
@@ -2320,7 +2320,7 @@ mod test {
 
             let c1 = text1.chars().count();
             let c2 = text2.chars().count();
-            let count = c1 as u32 + c2 as u32;
+            let count = c1 as u64 + c2 as u64;
 
             let _observer = text
                 .observe(move |txn, edit| assert_eq!(edit.delta(txn)[0], Delta::Deleted(count)));
@@ -2363,7 +2363,7 @@ mod test {
         let d2 = Doc::new();
         exchange_updates(&[&d1, &d2]);
 
-        txt.remove_range(&mut d1.transact_mut(), 0, "😭".len() as u32);
+        txt.remove_range(&mut d1.transact_mut(), 0, "😭".len() as u64);
         assert_eq!(txt.get_string(&d1.transact()).as_str(), "😊");
 
         exchange_updates(&[&d1, &d2]);
@@ -2381,7 +2381,7 @@ mod test {
         let d2 = Doc::new();
         exchange_updates(&[&d1, &d2]);
 
-        txt.remove_range(&mut d1.transact_mut(), 0, "⏰".len() as u32);
+        txt.remove_range(&mut d1.transact_mut(), 0, "⏰".len() as u64);
         assert_eq!(txt.get_string(&d1.transact()).as_str(), "⏳");
 
         exchange_updates(&[&d1, &d2]);
@@ -2397,7 +2397,7 @@ mod test {
         txt.insert(&mut txn, 0, "😊😭");
         // uncomment the following line will pass the test
         // txt.format(&mut txn, 0, "😊".len() as u32, HashMap::new());
-        txt.remove_range(&mut txn, "😊".len() as u32, "😭".len() as u32);
+        txt.remove_range(&mut txn, "😊".len() as u64, "😭".len() as u64);
 
         assert_eq!(txt.get_string(&txn).as_str(), "😊");
     }
@@ -2411,7 +2411,7 @@ mod test {
         txt.insert(&mut txn, 0, "⏰⏳");
         // uncomment the following line will pass the test
         // txt.format(&mut txn, 0, "⏰".len() as u32, HashMap::new());
-        txt.remove_range(&mut txn, "⏰".len() as u32, "⏳".len() as u32);
+        txt.remove_range(&mut txn, "⏰".len() as u64, "⏳".len() as u64);
 
         assert_eq!(txt.get_string(&txn).as_str(), "⏰");
     }
@@ -2426,11 +2426,11 @@ mod test {
 
         txt.format(
             &mut txn,
-            "👯".len() as u32,
-            "🙇‍♀️🙇‍♀️".len() as u32,
+            "👯".len() as u64,
+            "🙇‍♀️🙇‍♀️".len() as u64,
             HashMap::new(),
         );
-        txt.remove_range(&mut txn, "👯🙇‍♀️🙇‍♀️".len() as u32, "⏰".len() as u32); // will delete ⏰ and 👩‍❤️‍💋‍👨
+        txt.remove_range(&mut txn, "👯🙇‍♀️🙇‍♀️".len() as u64, "⏰".len() as u64); // will delete ⏰ and 👩‍❤️‍💋‍👨
 
         assert_eq!(txt.get_string(&txn).as_str(), "👯🙇‍♀️🙇‍♀️👩‍❤️‍💋‍👨");
     }
@@ -2445,13 +2445,13 @@ mod test {
         txt.insert(&mut txn, 0, "👯");
         txt.format(
             &mut txn,
-            "👯".len() as u32,
-            "🙇‍♀️🙇‍♀️".len() as u32,
+            "👯".len() as u64,
+            "🙇‍♀️🙇‍♀️".len() as u64,
             HashMap::new(),
         );
 
         // will delete ⏰ and 👩‍❤️‍💋‍👨
-        txt.remove_range(&mut txn, "👯🙇‍♀️🙇‍♀️".len() as u32, "⏰".len() as u32); // will delete ⏰ and 👩‍❤️‍💋‍👨
+        txt.remove_range(&mut txn, "👯🙇‍♀️🙇‍♀️".len() as u64, "⏰".len() as u64); // will delete ⏰ and 👩‍❤️‍💋‍👨
 
         assert_eq!(&txt.get_string(&txn), "👯🙇‍♀️🙇‍♀️👩‍❤️‍💋‍👨");
     }
@@ -2466,21 +2466,21 @@ mod test {
         txt.insert(&mut txn, 0, "👯");
         txt.format(
             &mut txn,
-            "👯".len() as u32,
-            "❤️❤️🙇‍♀️🙇‍♀️⏰".len() as u32,
+            "👯".len() as u64,
+            "❤️❤️🙇‍♀️🙇‍♀️⏰".len() as u64,
             HashMap::new(),
         );
-        txt.insert(&mut txn, "👯❤️❤️🙇‍♀️🙇‍♀️⏰".len() as u32, "⏰");
+        txt.insert(&mut txn, "👯❤️❤️🙇‍♀️🙇‍♀️⏰".len() as u64, "⏰");
         txt.format(
             &mut txn,
-            "👯❤️❤️🙇‍♀️🙇‍♀️⏰⏰".len() as u32,
-            "👩‍❤️‍💋‍👨".len() as u32,
+            "👯❤️❤️🙇‍♀️🙇‍♀️⏰⏰".len() as u64,
+            "👩‍❤️‍💋‍👨".len() as u64,
             HashMap::new(),
         );
         txt.remove_range(
             &mut txn,
-            "👯❤️❤️🙇‍♀️🙇‍♀️⏰⏰👩‍❤️‍💋‍👩".len() as u32,
-            "👩‍❤️‍💋‍👨".len() as u32,
+            "👯❤️❤️🙇‍♀️🙇‍♀️⏰⏰👩‍❤️‍💋‍👩".len() as u64,
+            "👩‍❤️‍💋‍👨".len() as u64,
         );
         assert_eq!(txt.get_string(&txn).as_str(), "👯❤️❤️🙇‍♀️🙇‍♀️⏰⏰👩‍❤️‍💋‍👨");
     }

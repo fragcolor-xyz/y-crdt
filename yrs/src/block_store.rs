@@ -44,7 +44,7 @@ impl ClientBlockList {
         Ok(ClientBlockList { list })
     }
 
-    pub fn clock(&self) -> u32 {
+    pub fn clock(&self) -> u64 {
         let len = self.list.len();
         if len == 0 {
             0
@@ -62,7 +62,7 @@ impl ClientBlockList {
 
     /// Given a block's identifier clock value, return an offset under which this block could be
     /// found using binary search algorithm, or a index under which this block should be inserted.
-    pub(crate) fn find_pivot(&self, clock: u32) -> Option<usize> {
+    pub(crate) fn find_pivot(&self, clock: u64) -> Option<usize> {
         let mut left = 0;
         let mut right = self.list.len() - 1;
         let mut block = &self[right];
@@ -71,7 +71,7 @@ impl ClientBlockList {
             // a common case is to just append a block at the end, so check first if we can do that
             Some(right)
         } else {
-            let mut mid = ((clock / end) * right as u32) as usize;
+            let mut mid = ((clock / end) * right as u64) as usize;
             while left <= right {
                 block = &self[mid];
                 (start, end) = block.clock_range();
@@ -94,12 +94,12 @@ impl ClientBlockList {
     /// list. Clocks are considered to work in left-side inclusive way, meaning that block with
     /// an ID (<client-id>, 0) and length 2, with contain all elements with clock values
     /// corresponding to {0,1} but not 2.
-    fn get_block(&self, clock: u32) -> Option<&BlockCell> {
+    fn get_block(&self, clock: u64) -> Option<&BlockCell> {
         let idx = self.find_pivot(clock)?;
         Some(&self[idx])
     }
 
-    fn get_block_mut(&mut self, clock: u32) -> Option<&mut BlockCell> {
+    fn get_block_mut(&mut self, clock: u64) -> Option<&mut BlockCell> {
         let idx = self.find_pivot(clock)?;
         Some(&mut self[idx])
     }
@@ -308,7 +308,7 @@ impl BlockStore {
     /// Returns the last observed clock sequence number for a given `client`. This is exclusive
     /// value meaning it describes a clock value of the beginning of the next block that's about
     /// to be inserted. You cannot use that clock value to find any existing block content.
-    pub fn get_clock(&self, client: &ClientID) -> u32 {
+    pub fn get_clock(&self, client: &ClientID) -> u64 {
         if let Some(list) = self.clients.get(client) {
             list.clock()
         } else {
@@ -345,7 +345,7 @@ impl BlockStore {
     pub fn split_block(
         &mut self,
         mut block: ItemPtr,
-        offset: u32,
+        offset: u64,
         encoding: OffsetKind,
     ) -> Option<ItemPtr> {
         let id = block.id().clone();
@@ -358,7 +358,7 @@ impl BlockStore {
         Some(right_ptr)
     }
 
-    pub(crate) fn split_block_inner(&mut self, block: ItemPtr, offset: u32) -> Option<ItemPtr> {
+    pub(crate) fn split_block_inner(&mut self, block: ItemPtr, offset: u64) -> Option<ItemPtr> {
         self.split_block(block, offset, OffsetKind::Utf16)
     }
 }

@@ -37,10 +37,10 @@ pub trait Encoder: Write {
     fn reset_ds_cur_val(&mut self);
 
     /// Write a clock value of currently encoded [DeleteSet] client.
-    fn write_ds_clock(&mut self, clock: u32);
+    fn write_ds_clock(&mut self, clock: u64);
 
     /// Write a number of client entries used by currently encoded [DeleteSet].
-    fn write_ds_len(&mut self, len: u32);
+    fn write_ds_len(&mut self, len: u64);
 
     /// Write unique identifier of a currently encoded [Block]'s left origin.
     fn write_left_id(&mut self, id: &block::ID);
@@ -63,7 +63,7 @@ pub trait Encoder: Write {
     fn write_type_ref(&mut self, info: u8);
 
     /// Write length parameter.
-    fn write_len(&mut self, len: u32);
+    fn write_len(&mut self, len: u64);
 
     /// Encode JSON-like data type. This is a complex structure which is an extension to JavaScript
     /// Object Notation with some extra cases.
@@ -118,12 +118,12 @@ impl Encoder for EncoderV1 {
     }
 
     #[inline]
-    fn write_ds_clock(&mut self, clock: u32) {
+    fn write_ds_clock(&mut self, clock: u64) {
         self.write_var(clock)
     }
 
     #[inline]
-    fn write_ds_len(&mut self, len: u32) {
+    fn write_ds_len(&mut self, len: u64) {
         self.write_var(len)
     }
 
@@ -158,7 +158,7 @@ impl Encoder for EncoderV1 {
     }
 
     #[inline]
-    fn write_len(&mut self, len: u32) {
+    fn write_len(&mut self, len: u64) {
         self.write_var(len)
     }
 
@@ -180,14 +180,14 @@ impl Encoder for EncoderV1 {
 }
 
 pub struct EncoderV2 {
-    key_table: HashMap<String, u32>,
+    key_table: HashMap<String, u64>,
     buf: Vec<u8>,
-    ds_curr_val: u32,
-    seqeuncer: u32,
-    key_clock_encoder: IntDiffOptRleEncoder,
+    ds_curr_val: u64,
+    seqeuncer: u64,
+    key_clock_encoder: UIntOptRleEncoder,
     client_encoder: UIntOptRleEncoder,
-    left_clock_encoder: IntDiffOptRleEncoder,
-    right_clock_encoder: IntDiffOptRleEncoder,
+    left_clock_encoder: UIntOptRleEncoder,
+    right_clock_encoder: UIntOptRleEncoder,
     info_encoder: RleEncoder,
     string_encoder: StringEncoder,
     parent_info_encoder: RleEncoder,
@@ -202,10 +202,10 @@ impl EncoderV2 {
             buf: Vec::new(),
             seqeuncer: 0,
             ds_curr_val: 0,
-            key_clock_encoder: IntDiffOptRleEncoder::new(),
+            key_clock_encoder: UIntOptRleEncoder::new(),
             client_encoder: UIntOptRleEncoder::new(),
-            left_clock_encoder: IntDiffOptRleEncoder::new(),
-            right_clock_encoder: IntDiffOptRleEncoder::new(),
+            left_clock_encoder: UIntOptRleEncoder::new(),
+            right_clock_encoder: UIntOptRleEncoder::new(),
             info_encoder: RleEncoder::new(),
             string_encoder: StringEncoder::new(),
             parent_info_encoder: RleEncoder::new(),
@@ -264,13 +264,13 @@ impl Encoder for EncoderV2 {
         self.ds_curr_val = 0;
     }
 
-    fn write_ds_clock(&mut self, clock: u32) {
+    fn write_ds_clock(&mut self, clock: u64) {
         let diff = clock - self.ds_curr_val;
         self.ds_curr_val = clock;
         self.buf.write_var(diff)
     }
 
-    fn write_ds_len(&mut self, len: u32) {
+    fn write_ds_len(&mut self, len: u64) {
         debug_assert!(len != 0);
         self.buf.write_var(len - 1);
         self.ds_curr_val += len;
@@ -278,12 +278,12 @@ impl Encoder for EncoderV2 {
 
     fn write_left_id(&mut self, id: &ID) {
         self.client_encoder.write_u64(id.client as u64);
-        self.left_clock_encoder.write_u32(id.clock)
+        self.left_clock_encoder.write_u64(id.clock)
     }
 
     fn write_right_id(&mut self, id: &ID) {
         self.client_encoder.write_u64(id.client as u64);
-        self.right_clock_encoder.write_u32(id.clock)
+        self.right_clock_encoder.write_u64(id.clock)
     }
 
     #[inline]
@@ -308,7 +308,7 @@ impl Encoder for EncoderV2 {
     }
 
     #[inline]
-    fn write_len(&mut self, len: u32) {
+    fn write_len(&mut self, len: u64) {
         self.len_encoder.write_u64(len as u64);
     }
 
@@ -327,7 +327,7 @@ impl Encoder for EncoderV2 {
 
     fn write_key(&mut self, key: &str) {
         //TODO: this is wrong (key_table is never updated), but this behavior matches Yjs
-        self.key_clock_encoder.write_u32(self.seqeuncer);
+        self.key_clock_encoder.write_u64(self.seqeuncer);
         self.seqeuncer += 1;
         if self.key_table.get(key).is_none() {
             self.string_encoder.write(key);

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 #[derive(Default)]
 pub(crate) struct GCCollector {
-    items: HashMap<ClientID, Vec<u32>>,
+    items: HashMap<ClientID, Vec<u64>>,
 }
 
 impl GCCollector {
