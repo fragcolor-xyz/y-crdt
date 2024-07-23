@@ -592,7 +592,7 @@ where
             (None, Assoc::After)
         };
 
-        let mut start_offset: i32 = if start.is_none() { 0 } else { -1 };
+        let mut start_offset: i64 = if start.is_none() { 0 } else { -1 };
         'LOOP: while let Some(item) = n.as_deref() {
             if let Some(start) = start {
                 if start_offset < 0 && item.contains(start) {
@@ -602,10 +602,10 @@ where
                             n = item.right;
                             continue;
                         } else {
-                            start_offset = start.clock as i32 - item.id.clock as i32 + 1;
+                            start_offset = start.clock as i64 - item.id.clock as i64 + 1;
                         }
                     } else {
-                        start_offset = start.clock as i32 - item.id.clock as i32;
+                        start_offset = start.clock as i64 - item.id.clock as i64;
                     }
                 }
             }

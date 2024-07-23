@@ -323,7 +323,7 @@ pub trait Array: AsRef<Branch> + Sized {
     /// let bob: Option<Person> = array.get_as(&txn, 1).unwrap();
     /// assert_eq!(bob, None);
     /// ```
-    fn get_as<T, V>(&self, txn: &T, index: u32) -> Result<V, Error>
+    fn get_as<T, V>(&self, txn: &T, index: u64) -> Result<V, Error>
     where
         T: ReadTxn,
         V: DeserializeOwned,

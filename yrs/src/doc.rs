@@ -1054,7 +1054,7 @@ mod test {
 
     use arc_swap::ArcSwapOption;
     use assert_matches2::assert_matches;
-    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::{Arc, Mutex};
 
     #[test]
@@ -1170,7 +1170,7 @@ mod test {
 
     #[test]
     fn on_update() {
-        let counter = Arc::new(AtomicU32::new(0));
+        let counter = Arc::new(AtomicU64::new(0));
         let doc = Doc::new();
         let doc2 = Doc::new();
         let c = counter.clone();

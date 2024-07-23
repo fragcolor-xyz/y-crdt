@@ -794,7 +794,7 @@ impl<T> Delta<T> {
 }
 
 impl Delta<In> {
-    pub fn retain(len: u32) -> Self {
+    pub fn retain(len: u64) -> Self {
         Delta::Retain(len, None)
     }
 
@@ -806,7 +806,7 @@ impl Delta<In> {
         Delta::Inserted(value.into(), Some(Box::new(attrs)))
     }
 
-    pub fn delete(len: u32) -> Self {
+    pub fn delete(len: u64) -> Self {
         Delta::Deleted(len)
     }
 }
