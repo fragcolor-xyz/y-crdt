@@ -299,7 +299,7 @@ where
     P: SharedRef + Array,
 {
     /// Returns an iterator over [Out]s existing in a scope of the current [WeakRef] quotation
-    /// range.  
+    /// range.
     pub fn unquote<'a, T: ReadTxn>(&self, txn: &'a T) -> Unquote<'a, T> {
         if let Some(source) = self.try_source() {
             source.unquote(txn)
@@ -361,7 +361,7 @@ where
     P: SharedRef + Array,
 {
     /// Returns an iterator over [Out]s existing in a scope of the current [WeakPrelim] quotation
-    /// range.  
+    /// range.
     pub fn unquote<'a, T: ReadTxn>(&self, txn: &'a T) -> Unquote<'a, T> {
         self.source.unquote(txn)
     }
@@ -702,7 +702,7 @@ pub trait Quotable: AsRef<Branch> + Sized {
     fn quote<T, R>(&self, txn: &T, range: R) -> Result<WeakPrelim<Self>, QuoteError>
     where
         T: ReadTxn,
-        R: RangeBounds<u32>,
+        R: RangeBounds<u64>,
     {
         let this = BranchPtr::from(self.as_ref());
         let (start, assoc_start) = match range.start_bound() {
@@ -1980,14 +1980,14 @@ mod test {
         array.move_to(&mut txn, 3, 7); // [1, 2, 3, 4, 6, 5, 7]
         array.move_to(&mut txn, 4, 6); // [1, 2, 3, 4, 5, 6, 7]
 
-        let values: Vec<_> = array.iter(&txn).map(|v| v.cast::<u32>().unwrap()).collect();
+        let values: Vec<_> = array.iter(&txn).map(|v| v.cast::<u64>().unwrap()).collect();
         assert_eq!(values, vec![1, 2, 3, 4, 5, 6, 7]);
 
-        let mut assert_quote = |start: u32, len: u32, expected: Vec<u32>| {
+        let mut assert_quote = |start: u64, len: u64, expected: Vec<u64>| {
             let end = start + len - 1;
             let q = array.quote(&mut txn, start..=end).unwrap();
             let q = quotes.push_back(&mut txn, q);
-            let values: Vec<_> = q.unquote(&txn).map(|v| v.cast::<u32>().unwrap()).collect();
+            let values: Vec<_> = q.unquote(&txn).map(|v| v.cast::<u64>().unwrap()).collect();
             assert_eq!(values, expected)
         };
 
@@ -2009,14 +2009,14 @@ mod test {
         array.insert_range(&mut txn, 0, [1, 5, 6, 2, 3, 4, 7]);
         array.move_range_to(&mut txn, 3, Before, 5, After, 1);
 
-        let values: Vec<_> = array.iter(&txn).map(|v| v.cast::<u32>().unwrap()).collect();
+        let values: Vec<_> = array.iter(&txn).map(|v| v.cast::<u64>().unwrap()).collect();
         assert_eq!(values, vec![1, 2, 3, 4, 5, 6, 7]);
 
-        let mut assert_quote = |start: u32, len: u32, expected: Vec<u32>| {
+        let mut assert_quote = |start: u64, len: u64, expected: Vec<u64>| {
             let end = start + len - 1;
             let q = array.quote(&mut txn, start..=end).unwrap();
             let q = quotes.push_back(&mut txn, q);
-            let values: Vec<_> = q.unquote(&txn).map(|v| v.cast::<u32>().unwrap()).collect();
+            let values: Vec<_> = q.unquote(&txn).map(|v| v.cast::<u64>().unwrap()).collect();
             assert_eq!(values, expected)
         };
 
@@ -2038,7 +2038,7 @@ mod test {
 
         array.insert_range(&mut txn, 0, [1, 2, 3, 4, 5, 6, 7]);
 
-        let mut quote = |start: u32, len: u32| {
+        let mut quote = |start: u64, len: u64| {
             let end = start + len - 1;
             let q = array.quote(&mut txn, start..=end).unwrap();
             quotes.push_back(&mut txn, q)
@@ -2050,22 +2050,22 @@ mod test {
         let q5 = quote(4, 3); // [5,6,7]
 
         array.move_range_to(&mut txn, 3, Before, 5, After, 1);
-        let values: Vec<_> = array.iter(&txn).map(|v| v.cast::<u32>().unwrap()).collect();
+        let values: Vec<_> = array.iter(&txn).map(|v| v.cast::<u64>().unwrap()).collect();
         assert_eq!(values, vec![1, 4, 5, 6, 2, 3, 7]);
 
-        let actual: Vec<_> = q1.unquote(&txn).map(|v| v.cast::<u32>().unwrap()).collect();
+        let actual: Vec<_> = q1.unquote(&txn).map(|v| v.cast::<u64>().unwrap()).collect();
         assert_eq!(actual, vec![1, 4, 5, 6, 2, 3]);
 
-        let actual: Vec<_> = q2.unquote(&txn).map(|v| v.cast::<u32>().unwrap()).collect();
+        let actual: Vec<_> = q2.unquote(&txn).map(|v| v.cast::<u64>().unwrap()).collect();
         assert_eq!(actual, vec![2, 3]);
 
-        let actual: Vec<_> = q3.unquote(&txn).map(|v| v.cast::<u32>().unwrap()).collect();
+        let actual: Vec<_> = q3.unquote(&txn).map(|v| v.cast::<u64>().unwrap()).collect();
         assert_eq!(actual, vec![3]);
 
-        let actual: Vec<_> = q4.unquote(&txn).map(|v| v.cast::<u32>().unwrap()).collect();
+        let actual: Vec<_> = q4.unquote(&txn).map(|v| v.cast::<u64>().unwrap()).collect();
         assert_eq!(actual, vec![4, 5, 6]);
 
-        let actual: Vec<_> = q5.unquote(&txn).map(|v| v.cast::<u32>().unwrap()).collect();
+        let actual: Vec<_> = q5.unquote(&txn).map(|v| v.cast::<u64>().unwrap()).collect();
         assert_eq!(actual, vec![5, 6, 2, 3, 7]);
     }
 
@@ -2092,13 +2092,13 @@ mod test {
         txt2.insert(&mut d2.transact_mut(), 1, "xyz");
 
         let link_excl = {
-            struct RangeLeftExclusive(u32, u32);
-            impl RangeBounds<u32> for RangeLeftExclusive {
-                fn start_bound(&self) -> Bound<&u32> {
+            struct RangeLeftExclusive(u64, u64);
+            impl RangeBounds<u64> for RangeLeftExclusive {
+                fn start_bound(&self) -> Bound<&u64> {
                     Bound::Excluded(&self.0)
                 }
 
-                fn end_bound(&self) -> Bound<&u32> {
+                fn end_bound(&self) -> Bound<&u64> {
                     Bound::Excluded(&self.1)
                 }
             }
