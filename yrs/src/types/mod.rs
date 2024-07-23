@@ -702,7 +702,7 @@ pub enum PathSegment {
 
     /// Index segments are used to inform how to access child shared collections within an [Array]
     /// or [XmlElement] types.
-    Index(u32),
+    Index(u64),
 }
 
 impl Serialize for PathSegment {
@@ -712,7 +712,7 @@ impl Serialize for PathSegment {
     {
         match self {
             PathSegment::Key(key) => serializer.serialize_str(&*key),
-            PathSegment::Index(i) => serializer.serialize_u32(*i),
+            PathSegment::Index(i) => serializer.serialize_u64(*i),
         }
     }
 }
@@ -743,11 +743,11 @@ pub enum Change {
 
     /// Determines a change that resulted in removing a consecutive range of existing elements,
     /// either XML child nodes for [XmlElement] or various elements stored in an [Array].
-    Removed(u32),
+    Removed(u64),
 
     /// Determines a number of consecutive unchanged elements. Used to recognize non-edited spaces
     /// between [Change::Added] and/or [Change::Removed] chunks.
-    Retain(u32),
+    Retain(u64),
 }
 
 /// A single change done over a map-component of shared data type.
@@ -772,12 +772,12 @@ pub enum Delta<T = Out> {
     Inserted(T, Option<Box<Attrs>>),
 
     /// Determines a change that resulted in removing a consecutive range of characters.
-    Deleted(u32),
+    Deleted(u64),
 
     /// Determines a number of consecutive unchanged characters. Used to recognize non-edited spaces
     /// between [Delta::Inserted] and/or [Delta::Deleted] chunks. Can contain an optional set of
     /// attributes, which have been used to format an existing piece of text.
-    Retain(u32, Option<Box<Attrs>>),
+    Retain(u64, Option<Box<Attrs>>),
 }
 
 impl<T> Delta<T> {
@@ -794,7 +794,7 @@ impl<T> Delta<T> {
 }
 
 impl Delta<In> {
-    pub fn retain(len: u32) -> Self {
+    pub fn retain(len: u64) -> Self {
         Delta::Retain(len, None)
     }
 
@@ -806,7 +806,7 @@ impl Delta<In> {
         Delta::Inserted(value.into(), Some(Box::new(attrs)))
     }
 
-    pub fn delete(len: u32) -> Self {
+    pub fn delete(len: u64) -> Self {
         Delta::Deleted(len)
     }
 }

@@ -11,14 +11,14 @@ pub(crate) enum BlockSlice {
 }
 
 impl BlockSlice {
-    pub fn clock_start(&self) -> u32 {
+    pub fn clock_start(&self) -> u64 {
         match self {
             BlockSlice::Item(s) => s.clock_start(),
             BlockSlice::GC(s) => s.clock_start(),
         }
     }
 
-    pub fn clock_end(&self) -> u32 {
+    pub fn clock_end(&self) -> u64 {
         match self {
             BlockSlice::Item(s) => s.clock_end(),
             BlockSlice::GC(s) => s.clock_end(),
@@ -33,7 +33,7 @@ impl BlockSlice {
         }
     }
 
-    pub fn len(&self) -> u32 {
+    pub fn len(&self) -> u64 {
         match self {
             BlockSlice::Item(s) => s.len(),
             BlockSlice::GC(s) => s.len(),
@@ -49,7 +49,7 @@ impl BlockSlice {
     }
 
     /// Trim a number of countable elements from the beginning of a current slice.
-    pub fn trim_start(&mut self, count: u32) {
+    pub fn trim_start(&mut self, count: u64) {
         match self {
             BlockSlice::Item(s) => s.trim_start(count),
             BlockSlice::GC(s) => s.trim_start(count),
@@ -57,7 +57,7 @@ impl BlockSlice {
     }
 
     /// Trim a number of countable elements from the end of a current slice.
-    pub fn trim_end(&mut self, count: u32) {
+    pub fn trim_end(&mut self, count: u64) {
         match self {
             BlockSlice::Item(s) => s.trim_end(count),
             BlockSlice::GC(s) => s.trim_end(count),
@@ -93,26 +93,26 @@ impl From<GCSlice> for BlockSlice {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) struct ItemSlice {
     pub ptr: ItemPtr,
-    pub start: u32,
-    pub end: u32,
+    pub start: u64,
+    pub end: u64,
 }
 
 impl ItemSlice {
-    pub fn new(ptr: ItemPtr, start: u32, end: u32) -> Self {
+    pub fn new(ptr: ItemPtr, start: u64, end: u64) -> Self {
         debug_assert!(start <= end);
         ItemSlice { ptr, start, end }
     }
-    pub fn clock_start(&self) -> u32 {
+    pub fn clock_start(&self) -> u64 {
         self.ptr.id.clock + self.start
     }
 
-    pub fn clock_end(&self) -> u32 {
+    pub fn clock_end(&self) -> u64 {
         self.ptr.id.clock + self.end
     }
 
     /// Returns the number of elements (counted as Yjs ID clock length) of the block range described
     /// by current [ItemSlice].
-    pub fn len(&self) -> u32 {
+    pub fn len(&self) -> u64 {
         self.end - self.start + 1
     }
 
@@ -131,13 +131,13 @@ impl ItemSlice {
     }
 
     /// Trim a number of countable elements from the beginning of a current slice.
-    pub(crate) fn trim_start(&mut self, count: u32) {
+    pub(crate) fn trim_start(&mut self, count: u64) {
         debug_assert!(count <= self.len());
         self.start += count;
     }
 
     /// Trim a number of countable elements from the end of a current slice.
-    pub(crate) fn trim_end(&mut self, count: u32) {
+    pub(crate) fn trim_end(&mut self, count: u64) {
         debug_assert!(count <= self.len());
         self.end -= count;
     }
@@ -296,32 +296,32 @@ impl From<ItemPtr> for ItemSlice {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) struct GCSlice {
-    pub start: u32,
-    pub end: u32,
+    pub start: u64,
+    pub end: u64,
 }
 
 impl GCSlice {
-    pub fn clock_start(&self) -> u32 {
+    pub fn clock_start(&self) -> u64 {
         self.start
     }
 
-    pub fn clock_end(&self) -> u32 {
+    pub fn clock_end(&self) -> u64 {
         self.end
     }
 
     /// Trim a number of countable elements from the beginning of a current slice.
-    pub(crate) fn trim_start(&mut self, count: u32) {
+    pub(crate) fn trim_start(&mut self, count: u64) {
         debug_assert!(count <= self.len());
         self.start += count;
     }
 
     /// Trim a number of countable elements from the end of a current slice.
-    pub(crate) fn trim_end(&mut self, count: u32) {
+    pub(crate) fn trim_end(&mut self, count: u64) {
         debug_assert!(count <= self.len());
         self.end -= count;
     }
 
-    pub fn len(&self) -> u32 {
+    pub fn len(&self) -> u64 {
         self.end - self.start + 1
     }
 

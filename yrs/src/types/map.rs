@@ -151,7 +151,7 @@ impl DefaultPrelim for MapRef {
 
 pub trait Map: AsRef<Branch> + Sized {
     /// Returns a number of entries stored within current map.
-    fn len<T: ReadTxn>(&self, _txn: &T) -> u32 {
+    fn len<T: ReadTxn>(&self, _txn: &T) -> u64 {
         let mut len = 0;
         let inner = self.as_ref();
         for item in inner.map.values() {
