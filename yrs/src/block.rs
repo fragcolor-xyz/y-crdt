@@ -1787,7 +1787,7 @@ impl ItemContent {
         match ref_num & 0b1111 {
             BLOCK_ITEM_DELETED_REF_NUMBER => Ok(ItemContent::Deleted(decoder.read_len()?)),
             BLOCK_ITEM_JSON_REF_NUMBER => {
-                let mut remaining = decoder.read_len()? as i32;
+                let mut remaining = decoder.read_len()?;
                 let mut buf = Vec::new();
                 buf.try_reserve(remaining as usize)?;
 
