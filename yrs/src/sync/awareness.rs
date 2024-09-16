@@ -45,7 +45,7 @@ impl Awareness {
     /// Creates a new instance of [Awareness] struct, which operates over a given document.
     /// Awareness instance has full ownership of that document. If necessary it can be accessed
     /// using either [Awareness::doc] or [Awareness::doc_mut] methods.
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(not(all(target_family = "wasm", not(target_os = "emscripten"))))]
     pub fn new(doc: Doc) -> Self {
         Self::with_clock(doc, crate::sync::time::SystemClock)
     }
@@ -466,7 +466,7 @@ impl Awareness {
     }
 }
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(not(all(target_family = "wasm", not(target_os = "emscripten"))))]
 impl Default for Awareness {
     fn default() -> Self {
         Awareness::new(Doc::new())

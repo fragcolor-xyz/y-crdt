@@ -74,7 +74,7 @@ where
     /// Creates a new instance of the [UndoManager] working in a `scope` of a particular shared
     /// type and document. While it's possible for undo manager to observe multiple shared types
     /// (see: [UndoManager::expand_scope]), it can only work with a single document at the same time.
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(not(all(target_family = "wasm", not(target_os = "emscripten"))))]
     pub fn new<T>(doc: &Doc, scope: &T) -> Self
     where
         T: AsRef<Branch>,
@@ -782,7 +782,7 @@ pub struct Options {
 
 pub type CaptureTransactionFn = Arc<dyn Fn(&TransactionMut) -> bool + Send + Sync + 'static>;
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(not(all(target_family = "wasm", not(target_os = "emscripten"))))]
 impl Default for Options {
     fn default() -> Self {
         Options {

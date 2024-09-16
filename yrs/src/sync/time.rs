@@ -17,11 +17,11 @@ where
 }
 
 /// A clock which uses standard (non-monotonic) OS date time.
-#[cfg(not(target_family = "wasm"))]
+#[cfg(not(all(target_family = "wasm", not(target_os = "emscripten"))))]
 #[derive(Debug, Copy, Clone, Default)]
 pub struct SystemClock;
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(not(all(target_family = "wasm", not(target_os = "emscripten"))))]
 impl Clock for SystemClock {
     fn now(&self) -> Timestamp {
         std::time::SystemTime::now()
